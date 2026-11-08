@@ -11,11 +11,11 @@
 
 **النسخة الحالية: 1.2.8**
 
-⬇️ [تحميل مثبّت نظام جلسات الخبراء (EXE — 205 م.ب)](https://github.com/Mohammad-Alenezi/ExpertApp/releases/latest/download/تثبيت_نظام_جلسات_الخبراء.exe)
+⬇️ [تحميل مثبّت نظام جلسات الخبراء (EXE — 205 م.ب)](https://github.com/Enezy1/ExpertApp/releases/latest/download/ExpertApp-Setup-1.2.8.exe)
 
 > الرابط فوق **ثابت** — يشير دائماً لآخر نسخة منشورة.
-> إذا تعطّل، افتح صفحة [الإصدارات](https://github.com/Mohammad-Alenezi/ExpertApp/releases)
-> وحمّل الملف `تثبيت_نظام_جلسات_الخبراء.exe`.
+> إذا تعطّل، افتح صفحة [الإصدارات](https://github.com/Enezy1/ExpertApp/releases)
+> وحمّل الملف `ExpertApp-Setup-1.2.8.exe`.
 
 ### خطوات التثبيت
 
