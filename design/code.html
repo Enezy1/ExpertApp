@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;font-family:'IBM Plex Sans Arabic',sans-serif;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"surface-container-lowest":"#ffffff","tertiary":"#000000","tertiary-container":"#001e2d","on-error":"#ffffff","tertiary-fixed-dim":"#83cfff","surface-variant":"#e0e3e6","secondary-fixed-dim":"#a1cced","on-surface":"#181c1e","on-tertiary-container":"#008dc3","on-primary":"#ffffff","inverse-primary":"#bac8dc","on-secondary":"#ffffff","on-background":"#181c1e","surface-bright":"#f7fafd","surface-container":"#ebeef1","on-secondary-fixed":"#001e2f","on-primary-container":"#778598","surface-container-high":"#e5e8eb","on-primary-fixed-variant":"#3a4859","surface-container-highest":"#e0e3e6","tertiary-fixed":"#c6e7ff","surface-container-low":"#f1f4f7","outline-variant":"#c4c6cc","surface-tint":"#525f71","surface":"#f7fafd","on-secondary-fixed-variant":"#1d4b67","outline":"#74777d","on-tertiary-fixed-variant":"#004c6b","surface-dim":"#d7dadd","on-tertiary":"#ffffff","on-error-container":"#93000a","primary-container":"#0f1c2c","inverse-surface":"#2d3133","secondary-container":"#b2dcfe","primary-fixed-dim":"#bac8dc","on-surface-variant":"#44474c","inverse-on-surface":"#eef1f4","secondary":"#386380","on-primary-fixed":"#0f1c2c","primary":"#000000","error":"#ba1a1a","secondary-fixed":"#c9e6ff","on-secondary-container":"#37627f","on-tertiary-fixed":"#001e2d","background":"#f7fafd","primary-fixed":"#d6e4f9","error-container":"#ffdad6"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"space-xl":"3rem","margin":"2rem","space-md":"1.25rem","space-lg":"2rem","gutter":"1.25rem","space-xs":"0.375rem","space-sm":"0.75rem"},"fontFamily":{"headline-xl-mobile":["IBM Plex Sans"],"headline-sm":["IBM Plex Sans"],"body-md":["IBM Plex Sans"],"body-lg":["IBM Plex Sans"],"headline-md":["IBM Plex Sans"],"label-md":["IBM Plex Sans"],"label-sm":["IBM Plex Sans"],"label-lg":["IBM Plex Sans"],"headline-lg-mobile":["IBM Plex Sans"],"headline-lg":["IBM Plex Sans"],"body-sm":["IBM Plex Sans"],"headline-xl":["IBM Plex Sans"]},"fontSize":{"headline-xl-mobile":["24px",{"lineHeight":"34px","fontWeight":"700"}],"headline-sm":["16px",{"lineHeight":"24px","fontWeight":"600"}],"body-md":["14px",{"lineHeight":"24px","fontWeight":"400"}],"body-lg":["16px",{"lineHeight":"28px","fontWeight":"400"}],"headline-md":["20px",{"lineHeight":"30px","fontWeight":"600"}],"label-md":["12px",{"lineHeight":"18px","fontWeight":"500"}],"label-sm":["11px",{"lineHeight":"16px","fontWeight":"600"}],"label-lg":["14px",{"lineHeight":"20px","fontWeight":"600"}],"headline-lg-mobile":["20px",{"lineHeight":"30px","fontWeight":"600"}],"headline-lg":["24px",{"lineHeight":"36px","fontWeight":"600"}],"body-sm":["12px",{"lineHeight":"20px","fontWeight":"400"}],"headline-xl":["32px",{"lineHeight":"44px","fontWeight":"700"}]}}}}</script></head><body class="bg-surface font-body-md text-body-md text-on-surface antialiased"><aside class="fixed right-0 top-0 h-full w-72 bg-primary-container text-surface z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="flex flex-col flex-1 overflow-y-auto"><div class="p-space-md flex items-center gap-space-sm"><div class="w-10 h-10 rounded-lg bg-surface-container-lowest/10 flex items-center justify-center text-secondary-fixed"><span class="material-symbols-outlined text-[24px]">balance</span></div><div class="flex flex-col"><span class="font-label-lg text-label-lg text-surface-container-lowest font-bold tracking-tight">وزارة العدل</span><span class="font-label-sm text-label-sm text-secondary-fixed">بوابة الخبراء القضائيين</span></div></div><div class="mx-space-md p-space-sm rounded-lg bg-surface-container-lowest/5 flex items-center gap-space-sm mb-space-sm"><div class="w-9 h-9 rounded-full bg-secondary flex items-center justify-center"><span class="material-symbols-outlined text-on-secondary text-[18px]">person</span></div><div class="flex flex-col flex-1"><span class="font-label-md text-label-md text-surface-container-lowest font-semibold">محمد العنزي</span><span class="font-label-sm text-label-sm text-secondary-fixed-dim">خبير هندسي معتمد • فئة (أ)</span></div><span class="material-symbols-outlined text-secondary-fixed text-[16px]">verified</span></div><div class="px-space-md py-space-xs"><span class="font-label-sm text-label-sm text-on-primary-container px-space-xs font-semibold">القضايا والمهام</span></div><nav class="px-space-sm space-y-1" data-active-classes="bg-surface-container-lowest/15 text-surface-container-lowest font-semibold shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-secondary-fixed-dim hover:bg-surface-container-lowest/10 hover:text-surface transition-all" data-path="sessions" href="#"><span class="material-symbols-outlined text-[20px]">calendar_today</span><span class="font-body-md text-body-md">الجلسات القضائية</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-secondary-fixed-dim hover:bg-surface-container-lowest/10 hover:text-surface transition-all" data-path="active-cases" href="#"><span class="material-symbols-outlined text-[20px]">pending_actions</span><span class="font-body-md text-body-md">القضايا المتداولة</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-secondary-fixed-dim hover:bg-surface-container-lowest/10 hover:text-surface transition-all" data-path="referred-cases" href="#"><span class="material-symbols-outlined text-[20px]">move_to_inbox</span><span class="font-body-md text-body-md">القضايا المحالة</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-secondary-fixed-dim hover:bg-surface-container-lowest/10 hover:text-surface transition-all" data-path="automated-dossier" href="#"><span class="material-symbols-outlined text-[20px]">folder_special</span><span class="font-body-md text-body-md">الملف الآلي الموحد</span></a><a aria-current="page" class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg transition-all bg-surface-container-lowest/15 text-surface-container-lowest font-semibold shadow-[0_1px_8px_rgba(0,0,0,0.04)]" data-path="expert-reports" href="#"><span class="material-symbols-outlined text-[20px]">article</span><span class="font-body-md text-body-md">تقارير الخبراء</span></a></nav><div class="px-space-md pt-space-md pb-space-xs"><span class="font-label-sm text-label-sm text-on-primary-container px-space-xs font-semibold">إجراءات سريعة</span></div><nav class="px-space-sm space-y-1" data-active-classes="bg-surface-container-lowest/15 text-surface-container-lowest font-semibold shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-secondary-fixed-dim hover:bg-surface-container-lowest/10 hover:text-surface transition-all" data-path="new-case" href="#"><span class="material-symbols-outlined text-[20px]">post_add</span><span class="font-body-md text-body-md">إضافة قضية جديدة</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-secondary-fixed-dim hover:bg-surface-container-lowest/10 hover:text-surface transition-all" data-path="search-case" href="#"><span class="material-symbols-outlined text-[20px]">manage_search</span><span class="font-body-md text-body-md">بحث وتدقيق قضية</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-secondary-fixed-dim hover:bg-surface-container-lowest/10 hover:text-surface transition-all" data-path="print-label" href="#"><span class="material-symbols-outlined text-[20px]">qr_code_scanner</span><span class="font-body-md text-body-md">طباعة ملصق الباركود</span></a></nav></div><div class="p-space-sm bg-surface-container-lowest/5 mt-auto"><nav class="space-y-1" data-active-classes="bg-surface-container-lowest/15 text-surface-container-lowest font-semibold"><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-secondary-fixed-dim hover:bg-surface-container-lowest/10 hover:text-surface transition-all" data-path="settings" href="#"><span class="material-symbols-outlined text-[20px]">tune</span><span class="font-body-md text-body-md">إعدادات الحساب</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-error-container hover:bg-surface-container-lowest/10 hover:text-error transition-all" data-path="login" href="#"><span class="material-symbols-outlined text-[20px]">logout</span><span class="font-body-md text-body-md">تسجيل الخروج</span></a></nav></div></aside><div class="pr-72"><header class="fixed top-0 right-72 left-0 h-16 bg-surface-container-lowest/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex items-center justify-between px-space-lg"><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-xs text-on-surface-variant font-body-sm text-body-sm"><span class="material-symbols-outlined text-[16px]">home_app_logo</span><span>بوابة الخبراء</span><span class="material-symbols-outlined text-[14px]">chevron_left</span><span class="text-on-surface font-semibold">إدارة أعمال الخبير</span></div><div class="hidden lg:flex items-center gap-space-xs bg-surface-container px-space-sm py-1 rounded-full text-secondary"><span class="material-symbols-outlined text-[16px]">schedule</span><span class="font-label-md text-label-md font-semibold">ساعة الجلسات القضائية: 09:30 ص</span></div></div><div class="flex items-center gap-space-md"><div class="relative flex items-center"><button class="w-9 h-9 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center transition-all relative" type="button"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-1.5 left-1.5 w-2 h-2 rounded-full bg-error"></span></button></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></header><main class="relative pt-16 bg-surface min-h-screen w-full px-space-lg py-space-lg"><div class="flex flex-col w-full space-y-space-lg">
+<!-- Sovereign Header & Top Context Meta -->
+<div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-space-md">
+<div class="flex flex-col">
+<div class="flex items-center gap-space-xs text-secondary font-label-md text-label-md mb-1">
+<span class="inline-block w-2 h-2 rounded-full bg-secondary-container"></span>
+<span>بوابة شؤون الخبرة والتحكيم • الإدارة العامة للخبراء</span>
+<span class="text-on-surface-variant/40">/</span>
+<span class="text-on-surface-variant font-semibold">القضايا المتداولة قيد الدراسة</span>
+</div>
+<div class="flex items-baseline gap-space-sm">
+<h1 class="font-headline-xl text-headline-xl text-on-surface font-bold tracking-tight">تقارير الخبراء القضائيين</h1>
+<span class="bg-surface-container-high px-space-sm py-0.5 rounded-full font-label-sm text-label-sm text-secondary font-bold">5 قضايا متداولة نشطة</span>
+</div>
+</div>
+<!-- Live Execution Status Badge & Master Actions -->
+<div class="flex items-center gap-space-sm self-start xl:self-auto">
+<div class="hidden sm:flex items-center gap-space-xs bg-surface-container-lowest shadow-sm px-space-md py-2.5 rounded-xl text-on-surface">
+<span class="relative flex h-2.5 w-2.5">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary-fixed-dim opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-secondary"></span>
+</span>
+<span class="font-label-sm text-label-sm font-semibold text-on-surface-variant">المزامنة مع نظام قصر العدل: مباشر</span>
+</div>
+<button class="flex items-center gap-space-xs px-space-md py-2.5 bg-surface-container-lowest hover:bg-surface-container-high text-on-surface rounded-xl shadow-sm transition-all text-label-lg font-label-lg cursor-pointer" id="refreshBtn">
+<span class="material-symbols-outlined text-[18px]">sync</span>
+<span>تحديث البيانات</span>
+</button>
+<button class="flex items-center gap-space-xs px-space-md py-2.5 bg-primary-container text-on-primary rounded-xl shadow-md hover:bg-secondary transition-all text-label-lg font-label-lg cursor-pointer">
+<span class="material-symbols-outlined text-[18px]">download_for_offline</span>
+<span>تصدير كشف القضايا (PDF)</span>
+</button>
+</div>
+</div>
+<!-- Executive Analytics & KPI Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-space-md">
+<!-- KPI 1 -->
+<div class="relative overflow-hidden bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between mb-space-sm">
+<span class="font-label-md text-label-md text-on-surface-variant font-medium">إجمالي القضايا النشطة</span>
+<div class="w-9 h-9 rounded-lg bg-surface-container flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[20px]">folder_open</span>
+</div>
+</div>
+<div class="flex items-baseline justify-between">
+<span class="font-headline-xl text-headline-xl text-on-surface font-bold tracking-tight">12</span>
+<span class="inline-flex items-center gap-1 font-label-sm text-label-sm text-secondary bg-surface-container px-2 py-0.5 rounded-full font-semibold">
+<span class="material-symbols-outlined text-[14px]">fact_check</span>
+<span>موزعة آلياً</span>
+</span>
+</div>
+<div class="mt-space-sm w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+<div class="bg-secondary h-full rounded-full" style="width: 100%"></div>
+</div>
+</div>
+<!-- KPI 2 -->
+<div class="relative overflow-hidden bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between mb-space-sm">
+<span class="font-label-md text-label-md text-on-surface-variant font-medium">قيد إعداد التقرير الفني</span>
+<div class="w-9 h-9 rounded-lg bg-surface-container flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[20px]">edit_note</span>
+</div>
+</div>
+<div class="flex items-baseline justify-between">
+<span class="font-headline-xl text-headline-xl text-on-surface font-bold tracking-tight">5</span>
+<span class="inline-flex items-center gap-1 font-label-sm text-label-sm text-secondary bg-surface-container px-2 py-0.5 rounded-full font-semibold">
+<span class="material-symbols-outlined text-[14px]">hourglass_top</span>
+<span>41.6% من الحمل</span>
+</span>
+</div>
+<div class="mt-space-sm w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+<div class="bg-secondary h-full rounded-full" style="width: 41.6%"></div>
+</div>
+</div>
+<!-- KPI 3 -->
+<div class="relative overflow-hidden bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between mb-space-sm">
+<span class="font-label-md text-label-md text-on-surface-variant font-medium">جلسات الأسبوع القادم</span>
+<div class="w-9 h-9 rounded-lg bg-error-container/30 flex items-center justify-center text-error">
+<span class="material-symbols-outlined text-[20px]">crisis_alert</span>
+</div>
+</div>
+<div class="flex items-baseline justify-between">
+<span class="font-headline-xl text-headline-xl text-error font-bold tracking-tight">3</span>
+<span class="inline-flex items-center gap-1 font-label-sm text-label-sm text-error bg-error-container/40 px-2 py-0.5 rounded-full font-semibold">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+<span>مواعيد حرجة</span>
+</span>
+</div>
+<div class="mt-space-sm w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+<div class="bg-error h-full rounded-full" style="width: 60%"></div>
+</div>
+</div>
+<!-- KPI 4 -->
+<div class="relative overflow-hidden bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between mb-space-sm">
+<span class="font-label-md text-label-md text-on-surface-variant font-medium">تقارير منجزة تم إيداعها</span>
+<div class="w-9 h-9 rounded-lg bg-surface-container flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[20px]">task_alt</span>
+</div>
+</div>
+<div class="flex items-baseline justify-between">
+<span class="font-headline-xl text-headline-xl text-on-surface font-bold tracking-tight">7</span>
+<span class="inline-flex items-center gap-1 font-label-sm text-label-sm text-secondary bg-surface-container px-2 py-0.5 rounded-full font-semibold">
+<span class="material-symbols-outlined text-[14px]">verified</span>
+<span>محكمة الاستئناف</span>
+</span>
+</div>
+<div class="mt-space-sm w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+<div class="bg-secondary h-full rounded-full" style="width: 58.3%"></div>
+</div>
+</div>
+</div>
+<!-- Filtration Deck & Universal Search Bar -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-space-md">
+<!-- Filter Pills -->
+<div class="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0" id="filterPillsContainer">
+<button class="filter-tab px-space-md py-2 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md font-semibold transition-all shadow-sm flex items-center gap-space-xs whitespace-nowrap cursor-pointer" data-filter="all">
+<span>كافة القضايا</span>
+<span class="bg-surface-container-lowest/20 px-2 py-0.5 rounded-full text-[11px]">12</span>
+</button>
+<button class="filter-tab px-space-md py-2 rounded-lg bg-surface-container text-on-surface-variant hover:text-on-surface font-label-md text-label-md font-medium transition-all flex items-center gap-space-xs whitespace-nowrap cursor-pointer" data-filter="telecom">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span>نزاعات الاتصالات فقط</span>
+<span class="bg-surface-container-high px-2 py-0.5 rounded-full text-[11px] font-bold">5</span>
+</button>
+<button class="filter-tab px-space-md py-2 rounded-lg bg-surface-container text-on-surface-variant hover:text-on-surface font-label-md text-label-md font-medium transition-all flex items-center gap-space-xs whitespace-nowrap cursor-pointer" data-filter="commercial">
+<span class="w-2 h-2 rounded-full bg-on-primary-container"></span>
+<span>قضايا الدوائر التجارية</span>
+<span class="bg-surface-container-high px-2 py-0.5 rounded-full text-[11px] font-bold">4</span>
+</button>
+<button class="filter-tab px-space-md py-2 rounded-lg bg-surface-container text-on-surface-variant hover:text-on-surface font-label-md text-label-md font-medium transition-all flex items-center gap-space-xs whitespace-nowrap cursor-pointer" data-filter="engineering">
+<span class="w-2 h-2 rounded-full bg-secondary-fixed-dim"></span>
+<span>النزاعات الفنية الهندسية</span>
+<span class="bg-surface-container-high px-2 py-0.5 rounded-full text-[11px] font-bold">3</span>
+</button>
+</div>
+<!-- Quick Search Field -->
+<div class="relative w-full lg:w-96">
+<span class="absolute inset-y-0 right-3 flex items-center pointer-events-none text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]">search</span>
+</span>
+<input class="w-full bg-surface-container-low text-on-surface placeholder:text-on-surface-variant/60 font-body-md text-body-md pr-10 pl-4 py-2.5 rounded-lg focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-secondary transition-all" id="caseSearchInput" placeholder="بحث برقم القضية، الرقم الآلي، أو الخصوم..." type="text"/>
+</div>
+</div>
+<!-- Interactive Procedural Stepper Visualizer Guide -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between pb-space-sm mb-space-sm border-b border-surface-container">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-secondary text-[22px]">alt_route</span>
+<span class="font-headline-sm text-headline-sm text-on-surface font-semibold">المسار الإجرائي المعتمد لإعداد التقرير القضائي</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">نظام إدارة تقارير الخبراء وفق القانون رقم 40 لسنة 1980</span>
+</div>
+<!-- Stepper Stage Rail -->
+<div class="grid grid-cols-2 md:grid-cols-6 gap-space-xs pt-2">
+<div class="flex flex-col items-center text-center p-2 rounded-lg bg-surface-container">
+<div class="w-7 h-7 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-label-sm text-label-sm font-bold mb-1">1</div>
+<span class="font-label-md text-label-md text-on-surface font-semibold">الموضوع</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">حصر الطلبات</span>
+</div>
+<div class="flex flex-col items-center text-center p-2 rounded-lg bg-surface-container">
+<div class="w-7 h-7 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-label-sm text-label-sm font-bold mb-1">2</div>
+<span class="font-label-md text-label-md text-on-surface font-semibold">المأمورية</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">حكم التحقيق</span>
+</div>
+<div class="flex flex-col items-center text-center p-2 rounded-lg bg-surface-container">
+<div class="w-7 h-7 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-label-sm text-label-sm font-bold mb-1 shadow-sm">3</div>
+<span class="font-label-md text-label-md text-secondary font-bold">الإجراءات</span>
+<span class="font-body-sm text-body-sm text-secondary">إخطار الخصوم والمعاينات</span>
+</div>
+<div class="flex flex-col items-center text-center p-2 rounded-lg bg-surface-container-low">
+<div class="w-7 h-7 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center font-label-sm text-label-sm font-bold mb-1">4</div>
+<span class="font-label-md text-label-md text-on-surface-variant font-medium">البحث والتدقيق</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant/70">المستندات والفحص</span>
+</div>
+<div class="flex flex-col items-center text-center p-2 rounded-lg bg-surface-container-low">
+<div class="w-7 h-7 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center font-label-sm text-label-sm font-bold mb-1">5</div>
+<span class="font-label-md text-label-md text-on-surface-variant font-medium">النتيجة والرأي</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant/70">الرأي الفني النهائي</span>
+</div>
+<div class="flex flex-col items-center text-center p-2 rounded-lg bg-surface-container-low">
+<div class="w-7 h-7 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center font-label-sm text-label-sm font-bold mb-1">6</div>
+<span class="font-label-md text-label-md text-on-surface-variant font-medium">المرفقات والتوقيع</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant/70">الإيداع الرسمي</span>
+</div>
+</div>
+</div>
+<!-- Primary Case Dossiers Grid -->
+<div class="flex flex-col space-y-space-md" id="casesDossierContainer">
+<!-- Case Item 1 -->
+<article class="case-card relative bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all p-space-md flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-space-md" data-casenum="A2260621" data-category="telecom">
+<div class="flex items-start gap-space-md flex-1">
+<!-- Visual Status Indicator Pillar -->
+<div class="w-2 self-stretch rounded-full bg-secondary"></div>
+<!-- Case Code & Authority Meta -->
+<div class="flex flex-col space-y-2 flex-1">
+<div class="flex flex-wrap items-center gap-space-xs">
+<span class="font-headline-md text-headline-md text-on-surface font-bold tracking-tight">A2260621</span>
+<span class="bg-surface-container px-2.5 py-0.5 rounded-md font-label-sm text-label-sm font-semibold text-secondary">آلي: 241098231</span>
+<span class="bg-secondary-fixed/50 text-on-secondary-fixed font-label-sm text-label-sm px-2.5 py-0.5 rounded-full font-bold">زين (ZAIN)</span>
+<span class="bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm px-2.5 py-0.5 rounded-full">استلام: 2026/08/30</span>
+<span class="bg-surface-container-high text-on-surface font-label-sm text-label-sm px-2.5 py-0.5 rounded-full">المحكمة الكلية • الدائرة التجارية السادسة</span>
+</div>
+<!-- Litigants & Subject -->
+<div class="flex flex-col">
+<h2 class="font-body-lg text-body-lg text-on-surface font-bold flex items-center gap-2">
+<span class="text-secondary font-semibold">المدعية:</span>
+<span>شركة الاتصالات المتنقلة (ش.م.ك.ع) - زين</span>
+<span class="text-on-surface-variant mx-1 font-normal font-body-sm text-body-sm">ضد</span>
+<span class="text-on-surface font-medium">الشركة الخليجية للشبكات السلكية واللاسلكية</span>
+</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">موضوع النزاع: تصفية حسابات ومطابقة فواتير ربط شبكي وتطبيق بنود اتفاقية التجوال والتعويض التعاقدي.</p>
+</div>
+<!-- Visual Progress & Current Phase -->
+<div class="flex flex-col sm:flex-row sm:items-center gap-space-md pt-2">
+<div class="flex-1 max-w-md">
+<div class="flex items-center justify-between text-label-sm font-label-sm mb-1">
+<span class="text-secondary font-semibold">المحطة 4 من 6: البحث ورأي الخبرة الهندسية</span>
+<span class="text-on-surface font-bold">75%</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-2 overflow-hidden">
+<div class="bg-secondary h-full rounded-full transition-all duration-500" style="width: 75%"></div>
+</div>
+</div>
+<div class="flex items-center gap-space-xs text-on-surface-variant font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-[16px] text-secondary">event_repeat</span>
+<span>الجلسة القادمة: <strong class="text-on-surface font-semibold">2026/09/18</strong></span>
+<span class="bg-secondary-fixed/40 text-on-secondary-fixed font-label-sm text-label-sm px-2 py-0.5 rounded-md">متبقي 12 يوم</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Action Trays -->
+<div class="flex sm:flex-row xl:flex-col items-center xl:items-end justify-between xl:justify-center gap-space-xs border-t xl:border-t-0 border-surface-container pt-3 xl:pt-0">
+<button class="w-full sm:w-auto px-space-md py-2.5 bg-primary-container hover:bg-secondary text-on-primary rounded-lg text-label-lg font-label-lg font-semibold flex items-center justify-center gap-space-xs shadow-sm transition-all cursor-pointer">
+<span class="material-symbols-outlined text-[18px]">hub</span>
+<span>فتح مسار التقرير القضائي</span>
+</button>
+<div class="flex items-center gap-1.5 w-full sm:w-auto">
+<button class="flex-1 sm:flex-none p-2 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-lg transition-all flex items-center justify-center" title="استعراض أوراق ومستندات الدعوى">
+<span class="material-symbols-outlined text-[18px]">description</span>
+</button>
+<button class="flex-1 sm:flex-none p-2 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-lg transition-all flex items-center justify-center" title="تسجيل محضر جلسة خبرة جديدة">
+<span class="material-symbols-outlined text-[18px]">add_notes</span>
+</button>
+<button class="flex-1 sm:flex-none p-2 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-lg transition-all flex items-center justify-center" title="طباعة ملصق الباركود للملف">
+<span class="material-symbols-outlined text-[18px]">print</span>
+</button>
+</div>
+</div>
+</article>
+<!-- Case Item 2 -->
+<article class="case-card relative bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all p-space-md flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-space-md" data-casenum="A2263681" data-category="telecom">
+<div class="flex items-start gap-space-md flex-1">
+<div class="w-2 self-stretch rounded-full bg-secondary"></div>
+<div class="flex flex-col space-y-2 flex-1">
+<div class="flex flex-wrap items-center gap-space-xs">
+<span class="font-headline-md text-headline-md text-on-surface font-bold tracking-tight">A2263681</span>
+<span class="bg-surface-container px-2.5 py-0.5 rounded-md font-label-sm text-label-sm font-semibold text-secondary">آلي: 241099854</span>
+<span class="bg-secondary-fixed/50 text-on-secondary-fixed font-label-sm text-label-sm px-2.5 py-0.5 rounded-full font-bold">زين (ZAIN)</span>
+<span class="bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm px-2.5 py-0.5 rounded-full">استلام: 2026/08/30</span>
+<span class="bg-surface-container-high text-on-surface font-label-sm text-label-sm px-2.5 py-0.5 rounded-full">محكمة الاستئناف • دائرة أسواق المال</span>
+</div>
+<div class="flex flex-col">
+<h2 class="font-body-lg text-body-lg text-on-surface font-bold flex items-center gap-2">
+<span class="text-secondary font-semibold">المدعي:</span>
+<span>الممثل القانوني لشركة زمزم الخير القابضة</span>
+<span class="text-on-surface-variant mx-1 font-normal font-body-sm text-body-sm">ضد</span>
+<span class="text-on-surface font-medium">شركة الاتصالات المتنقلة - زين</span>
+</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">موضوع النزاع: تقدير قيمة الأضرار التشغيلية المترتبة على انقطاع الربط السحابي ومطالبة بالأرباح الفائتة.</p>
+</div>
+<div class="flex flex-col sm:flex-row sm:items-center gap-space-md pt-2">
+<div class="flex-1 max-w-md">
+<div class="flex items-center justify-between text-label-sm font-label-sm mb-1">
+<span class="text-secondary font-semibold">المحطة 3 من 6: تنفيذ الإجراءات وسماع الإيضاحات</span>
+<span class="text-on-surface font-bold">50%</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-2 overflow-hidden">
+<div class="bg-secondary h-full rounded-full transition-all duration-500" style="width: 50%"></div>
+</div>
+</div>
+<div class="flex items-center gap-space-xs text-on-surface-variant font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-[16px] text-secondary">event_repeat</span>
+<span>الجلسة القادمة: <strong class="text-on-surface font-semibold">2026/09/24</strong></span>
+<span class="bg-surface-container text-on-surface font-label-sm text-label-sm px-2 py-0.5 rounded-md">متبقي 18 يوم</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex sm:flex-row xl:flex-col items-center xl:items-end justify-between xl:justify-center gap-space-xs border-t xl:border-t-0 border-surface-container pt-3 xl:pt-0">
+<button class="w-full sm:w-auto px-space-md py-2.5 bg-primary-container hover:bg-secondary text-on-primary rounded-lg text-label-lg font-label-lg font-semibold flex items-center justify-center gap-space-xs shadow-sm transition-all cursor-pointer">
+<span class="material-symbols-outlined text-[18px]">hub</span>
+<span>فتح مسار التقرير القضائي</span>
+</button>
+<div class="flex items-center gap-1.5 w-full sm:w-auto">
+<button class="flex-1 sm:flex-none p-2 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-lg transition-all flex items-center justify-center" title="استعراض أوراق ومستندات الدعوى">
+<span class="material-symbols-outlined text-[18px]">description</span>
+</button>
+<button class="flex-1 sm:flex-none p-2 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-lg transition-all flex items-center justify-center" title="تسجيل محضر جلسة خبرة جديدة">
+<span class="material-symbols-outlined text-[18px]">add_notes</span>
+</button>
+<button class="flex-1 sm:flex-none p-2 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-lg transition-all flex items-center justify-center" title="طباعة ملصق الباركود للملف">
+<span class="material-symbols-outlined text-[18px]">print</span>
+</button>
+</div>
+</div>
+</article>
+<!-- Case Item 3 (Critical Near Due Date) -->
+<article class="case-card relative bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all p-space-md flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-space-md" data-casenum="A2263981" data-category="telecom">
+<div class="flex items-start gap-space-md flex-1">
+<div class="w-2 self-stretch rounded-full bg-error"></div>
+<div class="flex flex-col space-y-2 flex-1">
+<div class="flex flex-wrap items-center gap-space-xs">
+<span class="font-headline-md text-headline-md text-on-surface font-bold tracking-tight">A2263981</span>
+<span class="bg-surface-container px-2.5 py-0.5 rounded-md font-label-sm text-label-sm font-semibold text-secondary">آلي: 241103442</span>
+<span class="bg-secondary-fixed/50 text-on-secondary-fixed font-label-sm text-label-sm px-2.5 py-0.5 rounded-full font-bold">زين (ZAIN)</span>
+<span class="bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm px-2.5 py-0.5 rounded-full">استلام: 2026/10/05</span>
+<span class="bg-error-container/40 text-error font-label-sm text-label-sm px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">alarm</span>
+<span>جلسة وشيكة</span>
+</span>
+</div>
+<div class="flex flex-col">
+<h2 class="font-body-lg text-body-lg text-on-surface font-bold flex items-center gap-2">
+<span class="text-secondary font-semibold">المدعية:</span>
+<span>لطيفه حابس فاضل المطيري</span>
+<span class="text-on-surface-variant mx-1 font-normal font-body-sm text-body-sm">ضد</span>
+<span class="text-on-surface font-medium">شركة الاتصالات المتنقلة - زين</span>
+</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">موضوع النزاع: اعتراض على احتساب فواتير باقات البيانات الدولية ومديونية سندات لأمر قضائي.</p>
+</div>
+<div class="flex flex-col sm:flex-row sm:items-center gap-space-md pt-2">
+<div class="flex-1 max-w-md">
+<div class="flex items-center justify-between text-label-sm font-label-sm mb-1">
+<span class="text-error font-bold">المحطة 5 من 6: صياغة النتيجة والرأي النهائي</span>
+<span class="text-error font-bold">88%</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-2 overflow-hidden">
+<div class="bg-error h-full rounded-full transition-all duration-500" style="width: 88%"></div>
+</div>
+</div>
+<div class="flex items-center gap-space-xs text-error font-body-sm text-body-sm font-semibold">
+<span class="material-symbols-outlined text-[16px]">priority_high</span>
+<span>الجلسة القادمة: <strong>2026/10/12</strong> (متبقي 4 أيام فقط)</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex sm:flex-row xl:flex-col items-center xl:items-end justify-between xl:justify-center gap-space-xs border-t xl:border-t-0 border-surface-container pt-3 xl:pt-0">
+<button class="w-full sm:w-auto px-space-md py-2.5 bg-primary-container hover:bg-secondary text-on-primary rounded-lg text-label-lg font-label-lg font-semibold flex items-center justify-center gap-space-xs shadow-sm transition-all cursor-pointer">
+<span class="material-symbols-outlined text-[18px]">verified_user</span>
+<span>اعتماد وإيداع التقرير</span>
+</button>
+<div class="flex items-center gap-1.5 w-full sm:w-auto">
+<button class="flex-1 sm:flex-none p-2 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-lg transition-all flex items-center justify-center" title="استعراض أوراق ومستندات الدعوى">
+<span class="material-symbols-outlined text-[18px]">description</span>
+</button>
+<button class="flex-1 sm:flex-none p-2 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-lg transition-all flex items-center justify-center" title="تسجيل محضر جلسة خبرة جديدة">
+<span class="material-symbols-outlined text-[18px]">add_notes</span>
+</button>
+<button class="flex-1 sm:flex-none p-2 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-lg transition-all flex items-center justify-center" title="طباعة ملصق الباركود للملف">
+<span class="material-symbols-outlined text-[18px]">print</span>
+</button>
+</div>
+</div>
+</article>
+<!-- Case Item 4 -->
+<article class="case-card relative bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all p-space-md flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-space-md" data-casenum="A2263973" data-category="telecom">
+<div class="flex items-start gap-space-md flex-1">
+<div class="w-2 self-stretch rounded-full bg-secondary"></div>
+<div class="flex flex-col space-y-2 flex-1">
+<div class="flex flex-wrap items-center gap-space-xs">
+<span class="font-headline-md text-headline-md text-on-surface font-bold tracking-tight">A2263973</span>
+<span class="bg-surface-container px-2.5 py-0.5 rounded-md font-label-sm text-label-sm font-semibold text-secondary">آلي: 241105912</span>
+<span class="bg-secondary-fixed/50 text-on-secondary-fixed font-label-sm text-label-sm px-2.5 py-0.5 rounded-full font-bold">زين (ZAIN)</span>
+<span class="bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm px-2.5 py-0.5 rounded-full">استلام: 2026/10/06</span>
+<span class="bg-surface-container-high text-on-surface font-label-sm text-label-sm px-2.5 py-0.5 rounded-full">محكمة الفروانية • الدائرة التجارية</span>
+</div>
+<div class="flex flex-col">
+<h2 class="font-body-lg text-body-lg text-on-surface font-bold flex items-center gap-2">
+<span class="text-secondary font-semibold">المدعي:</span>
+<span>عبد الرحمن فهد عبد الرحمن الخراز</span>
+<span class="text-on-surface-variant mx-1 font-normal font-body-sm text-body-sm">ضد</span>
+<span class="text-on-surface font-medium">شركة الاتصالات المتنقلة - زين</span>
+</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">موضوع النزاع: ندب خبير هندسي لبيان سلامة الخطوط الرقمية وفحص الأجهزة المزودة بموجب العقد.</p>
+</div>
+<div class="flex flex-col sm:flex-row sm:items-center gap-space-md pt-2">
+<div class="flex-1 max-w-md">
+<div class="flex items-center justify-between text-label-sm font-label-sm mb-1">
+<span class="text-secondary font-semibold">المحطة 2 من 6: تحديد نطاق المأمورية وحكم التمهيدي</span>
+<span class="text-on-surface font-bold">33%</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-2 overflow-hidden">
+<div class="bg-secondary h-full rounded-full transition-all duration-500" style="width: 33%"></div>
+</div>
+</div>
+<div class="flex items-center gap-space-xs text-on-surface-variant font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-[16px] text-secondary">event_repeat</span>
+<span>الجلسة القادمة: <strong class="text-on-surface font-semibold">2026/10/28</strong></span>
+<span class="bg-surface-container text-on-surface font-label-sm text-label-sm px-2 py-0.5 rounded-md">متبقي 22 يوم</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex sm:flex-row xl:flex-col items-center xl:items-end justify-between xl:justify-center gap-space-xs border-t xl:border-t-0 border-surface-container pt-3 xl:pt-0">
+<button class="w-full sm:w-auto px-space-md py-2.5 bg-primary-container hover:bg-secondary text-on-primary rounded-lg text-label-lg font-label-lg font-semibold flex items-center justify-center gap-space-xs shadow-sm transition-all cursor-pointer">
+<span class="material-symbols-outlined text-[18px]">hub</span>
+<span>فتح مسار التقرير القضائي</span>
+</button>
+<div class="flex items-center gap-1.5 w-full sm:w-auto">
+<button class="flex-1 sm:flex-none p-2 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-lg transition-all flex items-center justify-center" title="استعراض أوراق ومستندات الدعوى">
+<span class="material-symbols-outlined text-[18px]">description</span>
+</button>
+<button class="flex-1 sm:flex-none p-2 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-lg transition-all flex items-center justify-center" title="تسجيل محضر جلسة خبرة جديدة">
+<span class="material-symbols-outlined text-[18px]">add_notes</span>
+</button>
+<button class="flex-1 sm:flex-none p-2 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-lg transition-all flex items-center justify-center" title="طباعة ملصق الباركود للملف">
+<span class="material-symbols-outlined text-[18px]">print</span>
+</button>
+</div>
+</div>
+</article>
+<!-- Case Item 5 (STC Kuwait) -->
+<article class="case-card relative bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all p-space-md flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-space-md" data-casenum="A2263970" data-category="telecom">
+<div class="flex items-start gap-space-md flex-1">
+<div class="w-2 self-stretch rounded-full bg-secondary-fixed"></div>
+<div class="flex flex-col space-y-2 flex-1">
+<div class="flex flex-wrap items-center gap-space-xs">
+<span class="font-headline-md text-headline-md text-on-surface font-bold tracking-tight">A2263970</span>
+<span class="bg-surface-container px-2.5 py-0.5 rounded-md font-label-sm text-label-sm font-semibold text-secondary">آلي: 241108761</span>
+<span class="bg-secondary-container text-on-secondary-container font-label-sm text-label-sm px-2.5 py-0.5 rounded-full font-bold">stc الكويت</span>
+<span class="bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm px-2.5 py-0.5 rounded-full">استلام: 2026/10/06</span>
+<span class="bg-surface-container-high text-on-surface font-label-sm text-label-sm px-2.5 py-0.5 rounded-full">المحكمة الكلية • تجاري كلي</span>
+</div>
+<div class="flex flex-col">
+<h2 class="font-body-lg text-body-lg text-on-surface font-bold flex items-center gap-2">
+<span class="text-secondary font-semibold">المدعية:</span>
+<span>ابرار نواف عبدالله الربيع</span>
+<span class="text-on-surface-variant mx-1 font-normal font-body-sm text-body-sm">ضد</span>
+<span class="text-on-surface font-medium">شركة الاتصالات الكويتية (stc)</span>
+</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">موضوع النزاع: دعوى حساب واعتراض على تحصيل مبالغ مالية عبر البوابات الإلكترونية ودفع مستحقات الخدمة.</p>
+</div>
+<div class="flex flex-col sm:flex-row sm:items-center gap-space-md pt-2">
+<div class="flex-1 max-w-md">
+<div class="flex items-center justify-between text-label-sm font-label-sm mb-1">
+<span class="text-secondary font-semibold">المحطة 1 من 6: استلام الملف وتحديد جلسة الخبير الأولى</span>
+<span class="text-on-surface font-bold">16%</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-2 overflow-hidden">
+<div class="bg-secondary-fixed-dim h-full rounded-full transition-all duration-500" style="width: 16%"></div>
+</div>
+</div>
+<div class="flex items-center gap-space-xs text-on-surface-variant font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-[16px] text-secondary">event_repeat</span>
+<span>الجلسة القادمة: <strong class="text-on-surface font-semibold">2026/11/04</strong></span>
+<span class="bg-surface-container text-on-surface font-label-sm text-label-sm px-2 py-0.5 rounded-md">متبقي 29 يوم</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex sm:flex-row xl:flex-col items-center xl:items-end justify-between xl:justify-center gap-space-xs border-t xl:border-t-0 border-surface-container pt-3 xl:pt-0">
+<button class="w-full sm:w-auto px-space-md py-2.5 bg-primary-container hover:bg-secondary text-on-primary rounded-lg text-label-lg font-label-lg font-semibold flex items-center justify-center gap-space-xs shadow-sm transition-all cursor-pointer">
+<span class="material-symbols-outlined text-[18px]">hub</span>
+<span>فتح مسار التقرير القضائي</span>
+</button>
+<div class="flex items-center gap-1.5 w-full sm:w-auto">
+<button class="flex-1 sm:flex-none p-2 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-lg transition-all flex items-center justify-center" title="استعراض أوراق ومستندات الدعوى">
+<span class="material-symbols-outlined text-[18px]">description</span>
+</button>
+<button class="flex-1 sm:flex-none p-2 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-lg transition-all flex items-center justify-center" title="تسجيل محضر جلسة خبرة جديدة">
+<span class="material-symbols-outlined text-[18px]">add_notes</span>
+</button>
+<button class="flex-1 sm:flex-none p-2 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-lg transition-all flex items-center justify-center" title="طباعة ملصق الباركود للملف">
+<span class="material-symbols-outlined text-[18px]">print</span>
+</button>
+</div>
+</div>
+</article>
+</div>
+<!-- Bottom Procedural Audit & Operational Footnote -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex flex-col md:flex-row items-center justify-between text-on-surface-variant font-body-sm text-body-sm gap-space-sm">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-secondary text-[18px]">verified</span>
+<span>جميع الإجراءات وتحديثات القضايا موثقة بالختم الرقمي الحكومي المعتمد وفق معايير الهيئة العامة للمعلومات المدنية.</span>
+</div>
+<div class="flex items-center gap-space-md">
+<span>رقم ترخيص الخبير: <strong>EXP-KW-4409</strong></span>
+<span class="text-surface-variant">|</span>
+<span>الإصدار الرقمي: <strong>V 4.2.0</strong></span>
+</div>
+</div>
+</div>
+<script>
+  // Simple instant search and tab filtration logic
+  const searchInput = document.getElementById('caseSearchInput');
+  const caseCards = document.querySelectorAll('.case-card');
+  const filterTabs = document.querySelectorAll('.filter-tab');
+  const refreshBtn = document.getElementById('refreshBtn');
+
+  function applyFilters() {
+    const term = searchInput.value.trim().toLowerCase();
+    const activeTab = document.querySelector('.filter-tab.bg-primary-container')?.dataset.filter || 'all';
+
+    caseCards.forEach(card => {
+      const cardText = card.textContent.toLowerCase();
+      const cardCategory = card.dataset.category;
+      const matchesSearch = cardText.includes(term);
+      const matchesCategory = (activeTab === 'all') || (cardCategory === activeTab);
+
+      if (matchesSearch && matchesCategory) {
+        card.style.display = 'flex';
+      } else {
+        card.style.display = 'none';
+      }
+    });
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener('input', applyFilters);
+  }
+
+  filterTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      filterTabs.forEach(t => {
+        t.classList.remove('bg-primary-container', 'text-on-primary');
+        t.classList.add('bg-surface-container', 'text-on-surface-variant');
+      });
+      tab.classList.add('bg-primary-container', 'text-on-primary');
+      tab.classList.remove('bg-surface-container', 'text-on-surface-variant');
+      applyFilters();
+    });
+  });
+
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      refreshBtn.classList.add('opacity-50');
+      const icon = refreshBtn.querySelector('.material-symbols-outlined');
+      if (icon) icon.classList.add('animate-spin');
+      setTimeout(() => {
+        refreshBtn.classList.remove('opacity-50');
+        if (icon) icon.classList.remove('animate-spin');
+      }, 700);
+    });
+  }
+</script></main></div></body></html>

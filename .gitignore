@@ -1,0 +1,48 @@
+# =====ExpertApp — ملفات ما تنرفع إلى GitHub =====
+# الترتيب: الأسرار ← بيانات حقيقية ← نسخ قديمة ← مخلفات بناء
+
+# --- أسرار ومفاتيح API (نصية في gemini_network.ini) ---
+gemini_network.ini
+*_key.json
+ai_providers_cache.json
+.env
+.env.*
+*.secret
+
+# --- بروفايلات متصفح (كوكيز + بيانات دخول) ---
+*_profile/
+copilot_profile/
+gemini_profile/
+
+# --- قاعدة بيانات القسم الحقيقية (قضايا وأطراف حقيقية) ---
+ExpretDB.mdb
+ExpretDB.MDB
+*.mdb
+
+# --- بيانات قضايا حقيقية: نسخة مجمّدة للاختبار + عيّنات ---
+test_data/A2263973/
+samples/
+تجارب/
+
+# --- نسخ احتياطية قديمة ومجلدات محذوفة ---
+قديم/
+محذوفه/
+
+# --- بيئة افتراضية وأدوات خارجية ---
+.venv/
+venv/
+tools/probe/.venv/
+
+# --- مخلفات البناء والكاش ---
+__pycache__/
+build/
+dist/
+dist_ocr_test/
+installer_output/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# --- مثبتات الطرف الثالث: تُنزّل من الروابط الرسمية المذكورة في Installer.iss ---
+VC_redist.x64.exe
+MicrosoftEdgeWebview2Setup.exe

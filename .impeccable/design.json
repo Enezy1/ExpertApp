@@ -1,0 +1,811 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-04T21:19:44.384385+00:00",
+  "title": "Design System: نظام الخبراء — ExpertApp",
+  "extensions": {
+    "colorMeta": {
+      "ledger-paper": {
+        "role": "neutral",
+        "displayName": "Ledger Paper",
+        "canonical": "#FAFAF8",
+        "tonalRamp": [
+          "#2D2D20",
+          "#4D4D37",
+          "#6E6E4F",
+          "#8F8F66",
+          "#AAAA88",
+          "#C3C3AC",
+          "#DDDDCF",
+          "#F4F4F0"
+        ]
+      },
+      "card-white": {
+        "role": "neutral",
+        "displayName": "Card White",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5E5E5E",
+          "#7A7A7A",
+          "#999999",
+          "#B8B8B8",
+          "#D6D6D6",
+          "#F2F2F2"
+        ]
+      },
+      "paper-edge": {
+        "role": "neutral",
+        "displayName": "Paper Edge",
+        "canonical": "#EDEAE2",
+        "tonalRamp": [
+          "#2F2A1D",
+          "#524933",
+          "#746848",
+          "#97875E",
+          "#B1A481",
+          "#C8BFA7",
+          "#E0DBCD",
+          "#F5F4EF"
+        ]
+      },
+      "paper-edge-soft": {
+        "role": "neutral",
+        "displayName": "Paper Edge Soft",
+        "canonical": "#F1EEE6",
+        "tonalRamp": [
+          "#312B1B",
+          "#554B30",
+          "#796A44",
+          "#9D8A58",
+          "#B6A67C",
+          "#CCC1A3",
+          "#E2DBCB",
+          "#F6F4EF"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#0F172A",
+        "tonalRamp": [
+          "#141F38",
+          "#233662",
+          "#324C8B",
+          "#4063B4",
+          "#6985C9",
+          "#96AAD9",
+          "#C3CEEA",
+          "#ECF0F8"
+        ]
+      },
+      "slate": {
+        "role": "neutral",
+        "displayName": "Slate",
+        "canonical": "#475569",
+        "tonalRamp": [
+          "#1F252E",
+          "#35404F",
+          "#4C5B71",
+          "#637692",
+          "#8596AD",
+          "#AAB5C5",
+          "#CED5DE",
+          "#F0F2F5"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "canonical": "#94A3B8",
+        "tonalRamp": [
+          "#1F252E",
+          "#354050",
+          "#4B5B71",
+          "#627693",
+          "#8496AE",
+          "#A9B5C6",
+          "#CED5DE",
+          "#F0F2F5"
+        ]
+      },
+      "chambers-navy": {
+        "role": "primary",
+        "displayName": "Chambers Navy",
+        "canonical": "#0F2747",
+        "tonalRamp": [
+          "#0D233F",
+          "#173C6D",
+          "#21569C",
+          "#2B6FCA",
+          "#5790DB",
+          "#89B1E6",
+          "#BCD2F1",
+          "#EAF1FB"
+        ]
+      },
+      "chambers-navy-hover": {
+        "role": "primary",
+        "displayName": "Chambers Navy Hover",
+        "canonical": "#153560",
+        "tonalRamp": [
+          "#0E233F",
+          "#183C6D",
+          "#22559B",
+          "#2C6FC9",
+          "#588FDA",
+          "#8AB1E5",
+          "#BCD2F0",
+          "#EAF1FA"
+        ]
+      },
+      "chambers-navy-pressed": {
+        "role": "primary",
+        "displayName": "Chambers Navy Pressed",
+        "canonical": "#0A1C34",
+        "tonalRamp": [
+          "#0C2340",
+          "#153C6F",
+          "#1E559E",
+          "#276FCD",
+          "#548FDE",
+          "#87B1E8",
+          "#BBD2F2",
+          "#EAF1FB"
+        ]
+      },
+      "navy-mist": {
+        "role": "primary",
+        "displayName": "Navy Mist",
+        "canonical": "#F1F6F4",
+        "tonalRamp": [
+          "#1E2F28",
+          "#345145",
+          "#4A7362",
+          "#609580",
+          "#83AF9D",
+          "#A8C7BB",
+          "#CDDFD8",
+          "#EFF5F3"
+        ]
+      },
+      "navy-tint": {
+        "role": "primary",
+        "displayName": "Navy Tint",
+        "canonical": "#E8EDF4",
+        "tonalRamp": [
+          "#192434",
+          "#2B3E5A",
+          "#3D5980",
+          "#4F73A6",
+          "#7593BD",
+          "#9EB3D1",
+          "#C8D4E5",
+          "#EEF2F7"
+        ]
+      },
+      "rail-line": {
+        "role": "primary",
+        "displayName": "Rail Line",
+        "canonical": "#C9D3E0",
+        "tonalRamp": [
+          "#1C2531",
+          "#304054",
+          "#455B78",
+          "#59769C",
+          "#7D95B5",
+          "#A4B5CB",
+          "#CBD5E1",
+          "#EFF2F6"
+        ]
+      },
+      "sidebar-text-muted": {
+        "role": "neutral",
+        "displayName": "Sidebar Text Muted",
+        "canonical": "#93A5C2",
+        "tonalRamp": [
+          "#1C2431",
+          "#303E55",
+          "#445879",
+          "#58729C",
+          "#7D92B5",
+          "#A4B3CB",
+          "#CBD4E2",
+          "#EFF1F6"
+        ]
+      },
+      "seal-emerald": {
+        "role": "secondary",
+        "displayName": "Seal Emerald",
+        "canonical": "#1D9E75",
+        "tonalRamp": [
+          "#0C4130",
+          "#157053",
+          "#1D9F76",
+          "#26CF99",
+          "#53DFB3",
+          "#86E9CA",
+          "#BAF2E0",
+          "#E9FBF5"
+        ]
+      },
+      "seal-emerald-hover": {
+        "role": "secondary",
+        "displayName": "Seal Emerald Hover",
+        "canonical": "#178A63",
+        "tonalRamp": [
+          "#0B422F",
+          "#137252",
+          "#1BA274",
+          "#23D297",
+          "#50E2B0",
+          "#85EBC8",
+          "#B9F3E0",
+          "#E9FBF5"
+        ]
+      },
+      "seal-emerald-bg": {
+        "role": "secondary",
+        "displayName": "Seal Emerald Bg",
+        "canonical": "#E1F5EE",
+        "tonalRamp": [
+          "#13392C",
+          "#21634C",
+          "#2F8E6D",
+          "#3DB88D",
+          "#66CCA8",
+          "#94DBC2",
+          "#C2EBDC",
+          "#ECF9F4"
+        ]
+      },
+      "seal-emerald-text": {
+        "role": "secondary",
+        "displayName": "Seal Emerald Text",
+        "canonical": "#085041",
+        "tonalRamp": [
+          "#074639",
+          "#0C7962",
+          "#11AC8B",
+          "#16DFB5",
+          "#46ECCA",
+          "#7DF2DA",
+          "#B5F8EA",
+          "#E8FDF8"
+        ]
+      },
+      "emerald-on-navy": {
+        "role": "secondary",
+        "displayName": "Emerald On Navy",
+        "canonical": "#3FC79A",
+        "tonalRamp": [
+          "#113B2D",
+          "#1E674F",
+          "#2B9270",
+          "#37BE91",
+          "#61D1AC",
+          "#90DFC5",
+          "#C0EDDE",
+          "#EBF9F5"
+        ]
+      },
+      "deadline-amber": {
+        "role": "tertiary",
+        "displayName": "Deadline Amber",
+        "canonical": "#B45309",
+        "tonalRamp": [
+          "#492204",
+          "#7E3A06",
+          "#B45309",
+          "#E96C0C",
+          "#F58D3D",
+          "#F8AF77",
+          "#FBD1B1",
+          "#FEF1E7"
+        ]
+      },
+      "deadline-amber-bg": {
+        "role": "tertiary",
+        "displayName": "Deadline Amber Bg",
+        "canonical": "#FAEEDA",
+        "tonalRamp": [
+          "#432E09",
+          "#754F10",
+          "#A67016",
+          "#D8921D",
+          "#E7AC4B",
+          "#EEC581",
+          "#F5DEB7",
+          "#FCF5E9"
+        ]
+      },
+      "deadline-amber-text": {
+        "role": "tertiary",
+        "displayName": "Deadline Amber Text",
+        "canonical": "#854F0B",
+        "tonalRamp": [
+          "#472A06",
+          "#7A490A",
+          "#AE680E",
+          "#E28613",
+          "#EFA343",
+          "#F4BF7B",
+          "#F9DAB4",
+          "#FDF3E7"
+        ]
+      },
+      "overdue-crimson": {
+        "role": "tertiary",
+        "displayName": "Overdue Crimson",
+        "canonical": "#B42318",
+        "tonalRamp": [
+          "#440D09",
+          "#751710",
+          "#A62016",
+          "#D82A1D",
+          "#E7564B",
+          "#EE8981",
+          "#F5BBB7",
+          "#FCEAE8"
+        ]
+      },
+      "overdue-crimson-bg": {
+        "role": "tertiary",
+        "displayName": "Overdue Crimson Bg",
+        "canonical": "#FBEAE9",
+        "tonalRamp": [
+          "#410F0C",
+          "#701914",
+          "#A0241D",
+          "#CF2F26",
+          "#E05A52",
+          "#E98C86",
+          "#F2BDBA",
+          "#FBEAE9"
+        ]
+      },
+      "overdue-crimson-text": {
+        "role": "tertiary",
+        "displayName": "Overdue Crimson Text",
+        "canonical": "#7A231C",
+        "tonalRamp": [
+          "#3E120E",
+          "#6C1F19",
+          "#992C23",
+          "#C7392E",
+          "#D96359",
+          "#E4928B",
+          "#F0C0BD",
+          "#FAEBEA"
+        ]
+      },
+      "danger-on-navy": {
+        "role": "tertiary",
+        "displayName": "Danger On Navy",
+        "canonical": "#F4A39B",
+        "tonalRamp": [
+          "#450D08",
+          "#77170D",
+          "#AA2013",
+          "#DD2A18",
+          "#EB5647",
+          "#F1897E",
+          "#F7BBB5",
+          "#FCEAE8"
+        ]
+      },
+      "info-blue-bg": {
+        "role": "tertiary",
+        "displayName": "Info Blue Bg",
+        "canonical": "#EAF4FC",
+        "tonalRamp": [
+          "#0A2943",
+          "#114874",
+          "#1866A5",
+          "#1F85D6",
+          "#4CA2E6",
+          "#82BEED",
+          "#B8DAF5",
+          "#E9F3FC"
+        ]
+      },
+      "info-blue-text": {
+        "role": "tertiary",
+        "displayName": "Info Blue Text",
+        "canonical": "#0C447C",
+        "tonalRamp": [
+          "#072646",
+          "#0C4279",
+          "#115EAC",
+          "#167ADF",
+          "#4599ED",
+          "#7DB8F2",
+          "#B5D6F8",
+          "#E8F2FD"
+        ]
+      },
+      "info-border": {
+        "role": "tertiary",
+        "displayName": "Info Border",
+        "canonical": "#CFE4F4",
+        "tonalRamp": [
+          "#0E293E",
+          "#19486C",
+          "#23669A",
+          "#2E85C7",
+          "#59A2D9",
+          "#8BBEE4",
+          "#BDDAF0",
+          "#EAF3FA"
+        ]
+      },
+      "secondment-blush": {
+        "role": "tertiary",
+        "displayName": "Secondment Blush",
+        "canonical": "#FDF2F6",
+        "tonalRamp": [
+          "#420A1F",
+          "#731235",
+          "#A4194B",
+          "#D42162",
+          "#E44E85",
+          "#EC83A9",
+          "#F4B8CE",
+          "#FCE9F0"
+        ]
+      },
+      "secondment-red": {
+        "role": "tertiary",
+        "displayName": "Secondment Red",
+        "canonical": "#C0392B",
+        "tonalRamp": [
+          "#3F130E",
+          "#6C2018",
+          "#9A2E23",
+          "#C83B2D",
+          "#DA6458",
+          "#E5938A",
+          "#F0C1BC",
+          "#FAECEA"
+        ]
+      },
+      "ruler-track": {
+        "role": "neutral",
+        "displayName": "Ruler Track",
+        "canonical": "#78859A",
+        "tonalRamp": [
+          "#21252C",
+          "#39404C",
+          "#515B6C",
+          "#69768C",
+          "#8A96A8",
+          "#ADB5C2",
+          "#D0D5DC",
+          "#F0F2F4"
+        ]
+      },
+      "disabled-steel": {
+        "role": "neutral",
+        "displayName": "Disabled Steel",
+        "canonical": "#B9C2CE",
+        "tonalRamp": [
+          "#1F252D",
+          "#37414E",
+          "#4E5C6F",
+          "#657790",
+          "#8796AB",
+          "#ABB6C4",
+          "#CFD5DD",
+          "#F0F2F4"
+        ]
+      },
+      "login-field": {
+        "role": "neutral",
+        "displayName": "Login Field",
+        "canonical": "#0F1D30",
+        "tonalRamp": [
+          "#12233A",
+          "#203D65",
+          "#2D5790",
+          "#3A71BB",
+          "#6491CE",
+          "#92B2DD",
+          "#C1D3EC",
+          "#ECF1F9"
+        ]
+      },
+      "login-field-border": {
+        "role": "neutral",
+        "displayName": "Login Field Border",
+        "canonical": "#24344C",
+        "tonalRamp": [
+          "#192434",
+          "#2B3E5A",
+          "#3D5880",
+          "#4F72A6",
+          "#7592BD",
+          "#9EB2D1",
+          "#C8D3E5",
+          "#EEF1F7"
+        ]
+      },
+      "emerald-disabled": {
+        "role": "neutral",
+        "displayName": "Emerald Disabled",
+        "canonical": "#2E4A42",
+        "tonalRamp": [
+          "#1D2F2A",
+          "#335249",
+          "#487468",
+          "#5E9787",
+          "#81B1A3",
+          "#A7C8BF",
+          "#CDE0DA",
+          "#EFF5F4"
+        ]
+      },
+      "emerald-disabled-text": {
+        "role": "neutral",
+        "displayName": "Emerald Disabled Text",
+        "canonical": "#B7C3BF",
+        "tonalRamp": [
+          "#232A27",
+          "#3C4844",
+          "#566761",
+          "#6F867E",
+          "#90A29C",
+          "#B1BEBA",
+          "#D2DAD7",
+          "#F1F3F3"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "hero": {
+        "displayName": "Hero",
+        "purpose": "Day numeral in the sessions ledger (800)."
+      },
+      "display": {
+        "displayName": "Display",
+        "purpose": "KPI values and week-strip day numbers."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page titles in PageHeader."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Case names on cards (500); time-block numerals at 700."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Body text, fields, primary button labels."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Case numbers, KPI captions, secondary button labels."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Pills, deadline captions, status and meta lines."
+      },
+      "nav": {
+        "displayName": "Nav",
+        "purpose": "Sidebar navigation labels (700 when active)."
+      }
+    },
+    "shadows": [
+      {
+        "name": "desk-shadow",
+        "value": "0 6px 22px rgba(15,23,42,0.07)",
+        "purpose": "The only shadow; every Card via soft_shadow() (Qt: blur 22, offset 0/6, alpha 18)."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-standard",
+        "value": "OutCubic (cubic-bezier(0.33, 1, 0.68, 1))",
+        "purpose": "Every transition: decelerating arrival, no bounce."
+      },
+      {
+        "name": "feedback",
+        "value": "120-150ms",
+        "purpose": "Immediate acknowledgement."
+      },
+      {
+        "name": "page-fade",
+        "value": "180ms",
+        "purpose": "FadingStack page change."
+      },
+      {
+        "name": "card-cascade",
+        "value": "200ms, 25ms step, max 8",
+        "purpose": "List render (140ms/18ms on filter change)."
+      },
+      {
+        "name": "drawer",
+        "value": "220ms",
+        "purpose": "No-upcoming drawer height + row fade."
+      },
+      {
+        "name": "seal-glide",
+        "value": "240ms",
+        "purpose": "Sidebar emerald seal moving between nav items."
+      },
+      {
+        "name": "list-glide",
+        "value": "280ms",
+        "purpose": "Scroll to a day from the week strip."
+      },
+      {
+        "name": "seal-stamp",
+        "value": "320ms",
+        "purpose": "«تم» stamp after a محضر file exists (115%→100% + fade, once)."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "Windows SPI_GETCLIENTAREAANIMATION off → ≤90ms fade only",
+        "purpose": "No spatial motion when the OS asks."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "window-min",
+        "value": "1080px"
+      },
+      {
+        "name": "window-target",
+        "value": "1280px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one main action per card or dialog.",
+      "html": "<button class=\"ds-btn-primary\">طباعة المحضر</button>",
+      "css": ".ds-btn-primary { font-family: Tajawal, 'Segoe UI', sans-serif; direction: rtl; background: #0F2747; color: #FFFFFF; border: none; border-radius: 10px; padding: 10px 20px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.15s; } .ds-btn-primary:hover { background: #153560; } .ds-btn-primary:focus-visible { outline: 2px solid #1D9E75; outline-offset: 2px; } .ds-btn-primary:disabled { background: #B9C2CE; color: #FFFFFF; cursor: default; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Supporting actions beside the primary button.",
+      "html": "<button class=\"ds-btn-secondary\">إجراءات أخرى</button>",
+      "css": ".ds-btn-secondary { font-family: Tajawal, 'Segoe UI', sans-serif; direction: rtl; background: transparent; color: #475569; border: 1px solid #EDEAE2; border-radius: 10px; padding: 9px 16px; font-size: 12px; font-weight: 500; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; } .ds-btn-secondary:hover { background: #F1F6F4; border-color: #0F2747; color: #0F2747; } .ds-btn-secondary:focus-visible { outline: 2px solid #0F2747; outline-offset: 2px; }"
+    },
+    {
+      "name": "Status Badges",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Pill-shaped status labels in tint pairs; never clickable.",
+      "html": "<div class=\"ds-badges\"><span class=\"ds-badge ds-ok\">منجزة</span><span class=\"ds-badge ds-warn\">قريبة</span><span class=\"ds-badge ds-bad\">متأخرة</span><span class=\"ds-badge ds-sec\">استعانة</span></div>",
+      "css": ".ds-badges { direction: rtl; display: flex; gap: 6px; } .ds-badge { font-family: Tajawal, 'Segoe UI', sans-serif; border-radius: 20px; padding: 4px 14px; font-size: 11px; font-weight: 700; } .ds-ok { background: #E1F5EE; color: #085041; } .ds-warn { background: #FAEEDA; color: #854F0B; } .ds-bad { background: #FBEAE9; color: #7A231C; } .ds-sec { background: #FDF2F6; color: #C0392B; }"
+    },
+    {
+      "name": "Smart Date Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Right-aligned field; navy border on focus, crimson when in error.",
+      "html": "<input class=\"ds-input\" placeholder=\"DD/MM/YYYY\" value=\"2026/10/04\">",
+      "css": ".ds-input { font-family: Tajawal, 'Segoe UI', sans-serif; direction: rtl; text-align: right; background: #FFFFFF; color: #0F172A; border: 1px solid #EDEAE2; border-radius: 10px; padding: 9px 12px; font-size: 13px; outline: none; transition: border-color 0.15s; } .ds-input:hover { border-color: #94A3B8; } .ds-input:focus-visible, .ds-input:focus { border-color: #0F2747; }"
+    },
+    {
+      "name": "Session Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Three zones: time block, case details, one primary action.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-time\"><b>10:00</b><small>صباحًا</small></div><div class=\"ds-info\"><div class=\"ds-name\">شركة الخليج للمقاولات ضد وزارة الأشغال</div><div class=\"ds-num\">رقم الخبرة &#x2066;A2261085&#x2069;</div></div><button class=\"ds-card-btn\">طباعة المحضر</button></div>",
+      "css": ".ds-card { font-family: Tajawal, 'Segoe UI', sans-serif; direction: rtl; display: flex; align-items: center; gap: 16px; background: #FFFFFF; border: 1px solid #EDEAE2; border-radius: 16px; padding: 18px 20px; box-shadow: 0 6px 22px rgba(15,23,42,0.07); } .ds-time { width: 78px; flex: none; background: #F1F6F4; border-radius: 12px; padding: 10px 6px; text-align: center; display: flex; flex-direction: column; gap: 2px; } .ds-time b { color: #0F2747; font-size: 15px; font-weight: 700; } .ds-time small { color: #475569; font-size: 10px; } .ds-info { flex: 1; } .ds-name { color: #0F172A; font-size: 15px; font-weight: 500; } .ds-num { color: #475569; font-size: 12px; margin-top: 4px; } .ds-card-btn { font-family: Tajawal, 'Segoe UI', sans-serif; background: #0F2747; color: #FFFFFF; border: none; border-radius: 10px; padding: 10px 20px; font-size: 13px; font-weight: 700; cursor: pointer; } .ds-card-btn:hover { background: #153560; } .ds-card-btn:focus-visible { outline: 2px solid #1D9E75; outline-offset: 2px; }"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "refersTo": "sidebar",
+      "description": "Navy sidebar on the right; the active item gets a white wash and the emerald marker.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item ds-active\" href=\"#\"><i></i>الجلسات</a><a class=\"ds-nav-item\" href=\"#\"><i></i>القضايا المتداولة</a><a class=\"ds-nav-item\" href=\"#\"><i></i>القضايا المحالة</a></nav>",
+      "css": ".ds-nav { font-family: Tajawal, 'Segoe UI', sans-serif; direction: rtl; width: 240px; background: #0F2747; padding: 16px; display: flex; flex-direction: column; gap: 4px; border-radius: 12px; } .ds-nav-item { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px; border-radius: 10px; color: #93A5C2; font-size: 14px; text-decoration: none; transition: background 0.15s, color 0.15s; } .ds-nav-item i { width: 3px; height: 22px; border-radius: 2px; background: transparent; } .ds-nav-item:hover { color: #FFFFFF; } .ds-nav-item:focus-visible { outline: 2px solid #1D9E75; outline-offset: -2px; } .ds-active { background: rgba(255,255,255,0.08); color: #FFFFFF; font-weight: 700; } .ds-active i { background: #1D9E75; } .ds-nav-item { font-weight: 500; height: 44px; }"
+    },
+    {
+      "name": "Deadline Ruler",
+      "kind": "custom",
+      "refersTo": "ruler-track",
+      "description": "21 ticks (one per day), long tick each week; elapsed fill in the bright signal tone, caption in the dark tone with the due date.",
+      "html": "<div class=\"ds-deadlines\"><div class=\"ds-dl\"><span style=\"color:#085041\">متبقي 11 يومًا · حتى الخميس 15/10</span><div class=\"ds-ticks\"><i style=\"height:7px;background:#1D9E75\"></i><i style=\"height:7px;background:#1D9E75\"></i><i style=\"height:7px;background:#1D9E75\"></i><i style=\"height:7px;background:#1D9E75\"></i><i style=\"height:7px;background:#1D9E75\"></i><i style=\"height:7px;background:#1D9E75\"></i><i style=\"height:11px;background:#1D9E75\"></i><i style=\"height:7px;background:#1D9E75\"></i><i style=\"height:7px;background:#1D9E75\"></i><i style=\"height:7px;background:#1D9E75\"></i><i style=\"height:7px;background:#78859A\"></i><i style=\"height:7px;background:#78859A\"></i><i style=\"height:7px;background:#78859A\"></i><i style=\"height:11px;background:#78859A\"></i><i style=\"height:7px;background:#78859A\"></i><i style=\"height:7px;background:#78859A\"></i><i style=\"height:7px;background:#78859A\"></i><i style=\"height:7px;background:#78859A\"></i><i style=\"height:7px;background:#78859A\"></i><i style=\"height:7px;background:#78859A\"></i><i style=\"height:11px;background:#78859A\"></i></div></div><div class=\"ds-dl\"><span style=\"color:#7A231C\">متبقي يومان · حتى الثلاثاء 06/10</span><div class=\"ds-ticks\"><i style=\"height:7px;background:#B42318\"></i><i style=\"height:7px;background:#B42318\"></i><i style=\"height:7px;background:#B42318\"></i><i style=\"height:7px;background:#B42318\"></i><i style=\"height:7px;background:#B42318\"></i><i style=\"height:7px;background:#B42318\"></i><i style=\"height:11px;background:#B42318\"></i><i style=\"height:7px;background:#B42318\"></i><i style=\"height:7px;background:#B42318\"></i><i style=\"height:7px;background:#B42318\"></i><i style=\"height:7px;background:#B42318\"></i><i style=\"height:7px;background:#B42318\"></i><i style=\"height:7px;background:#B42318\"></i><i style=\"height:11px;background:#B42318\"></i><i style=\"height:7px;background:#B42318\"></i><i style=\"height:7px;background:#B42318\"></i><i style=\"height:7px;background:#B42318\"></i><i style=\"height:7px;background:#B42318\"></i><i style=\"height:7px;background:#B42318\"></i><i style=\"height:7px;background:#78859A\"></i><i style=\"height:11px;background:#78859A\"></i></div></div></div>",
+      "css": ".ds-deadlines { font-family: Tajawal, 'Segoe UI', sans-serif; direction: rtl; display: flex; flex-direction: column; gap: 14px; } .ds-dl { display: flex; flex-direction: column; gap: 5px; } .ds-dl span { font-size: 11px; font-weight: 700; } .ds-ticks { display: flex; align-items: center; gap: 3.8px; height: 12px; } .ds-ticks i { display: block; width: 2.2px; border-radius: 1.1px; }"
+    },
+    {
+      "name": "KPI Card",
+      "kind": "card",
+      "refersTo": "kpi-card",
+      "description": "Caption over a large value; the value takes a status colour only when it is a signal.",
+      "html": "<div class=\"ds-kpis\"><div class=\"ds-kpi\"><span>القضايا المحالة</span><b>24</b></div><div class=\"ds-kpi\"><span>قضايا استعانة</span><b style=\"color:#C0392B\">5</b></div></div>",
+      "css": ".ds-kpis { direction: rtl; display: flex; gap: 14px; } .ds-kpi { font-family: Tajawal, 'Segoe UI', sans-serif; background: #FFFFFF; border: 1px solid #EDEAE2; border-radius: 16px; padding: 16px 18px; box-shadow: 0 6px 22px rgba(15,23,42,0.07); display: flex; flex-direction: column; gap: 6px; min-width: 150px; } .ds-kpi span { color: #475569; font-size: 12px; } .ds-kpi b { color: #0F172A; font-size: 22px; font-weight: 700; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Expert's Desk",
+    "overview": "The app should feel like a well-kept expert's desk. It sits on warm off-white paper rather than clinical white. The ink is a deep institutional navy. Emerald appears only as a seal on things that are done, connected or confirmed. Each case is its own card, and the next action on it is obvious. Calm comes from order, not emptiness. A busy week of sessions should read in one pass: time on one side, the case name in the middle, and the main action at the edge.\n\nThe interface is right-to-left Arabic throughout. The navy sidebar sits on the right as the desk's fixed spine, and pages stack beside it. Spacing is roomy enough to scan, never cramped. Controls should feel **confident and tactile**: buttons have clear weight and real padding, cards have a distinct edge, and nothing reads as a decorative ghost.\n\nEach working page is one expression of the desk. The **sessions ledger** («دفتر اليومية») hangs each day's sessions from a navy timeline, with an emerald «الآن» line and a seal stamped on what is done. The **filing cabinet** («خزانة الملفات», pending cases) puts reserved cases first, measured by a 21-tick deadline ruler. The **inbox** («صندوق الوارد», referred cases) presents each referral as an incoming memo with labelled fact boxes. The desk tells the truth: when data is missing it says so («—», «انقطع الاتصال») instead of showing a reassuring zero.\n\nThe system rejects two things outright. The first is the **old government-system look**: dense grey grids, plain Windows buttons, Oracle Forms. The second is **loud colour**: gradients, neon, and decoration with no job to do.",
+    "keyCharacteristics": [
+      "Warm paper background with white cards. Depth comes from a hairline border and one very soft shadow.",
+      "Navy is the single voice of authority. Emerald, amber and crimson only report status.",
+      "Right-to-left everywhere, with explicit alignment helpers and isolated left-to-right text runs.",
+      "Each card has one primary action. Everything else is secondary or tucked away.",
+      "Line icons are drawn in code (`qt_icons.py`), never emoji.",
+      "Motion is quiet and explanatory (120–320ms), and it respects the Windows \"show animations\" setting."
+    ],
+    "rules": [
+      {
+        "name": "The Ink-on-Paper Rule",
+        "body": "Chambers Navy is the only fill for a primary action. Never promote emerald, amber or any new hue to a main button.",
+        "section": "colors"
+      },
+      {
+        "name": "The Three Signals Rule",
+        "body": "Emerald, amber and crimson are status, not decoration. They follow the deadline thresholds: more than 7 days is emerald, 7 days or fewer is amber, 3 days or fewer or overdue is crimson. If a colour says nothing about state, it must be a neutral.",
+        "section": "colors"
+      },
+      {
+        "name": "The Dark Tone for Text Rule",
+        "body": "Small status text uses the dark tone of its signal (`seal-emerald-text`, `deadline-amber-text`, `overdue-crimson-text`). The bright tone is for shapes only: ticks, dots, rings. On navy, use the `*-on-navy` tones.",
+        "section": "colors"
+      },
+      {
+        "name": "The Blush Means Secondment Rule",
+        "body": "The blush card colour is reserved for استعانة cases. No other surface may use it, so experts can spot secondments without reading.",
+        "section": "colors"
+      },
+      {
+        "name": "The Honest Figures Rule",
+        "body": "When data is missing (offline, error, not logged in), figures show a neutral «—» and status says what happened. A missing value is never shown as 0, and stale data is never shown next to a failure.",
+        "section": "colors"
+      },
+      {
+        "name": "The Four Real Weights Rule",
+        "body": "Use only the weights Tajawal ships: 400, 500, 700, 800. Never 600: Tajawal has no SemiBold, so Qt renders it as 700 and the hierarchy collapses. 800 is reserved for the ledger's day numeral and the seal's «تم». Hierarchy never depends on a font change.",
+        "section": "typography"
+      },
+      {
+        "name": "The Arabic Count Rule",
+        "body": "Counts are written as Arabic speaks them: يوم واحد / يومان / 3–10 أيام / 11+ يومًا, جلسة واحدة / جلستان / جلسات. Never «2 يوم».",
+        "section": "typography"
+      },
+      {
+        "name": "The Absolute Right Rule",
+        "body": "Never use bare `AlignRight`/`AlignLeft`. Inside a right-to-left app Qt flips them. Always use `th.ARIGHT` / `th.ALEFT`, which include `AlignAbsolute`, and wrap any left-to-right text inside Arabic (file paths, Latin case numbers like A2261085, dates, URLs) in `th.ltr()` so it is not reversed.",
+        "section": "layout"
+      },
+      {
+        "name": "The Readable Column Rule",
+        "body": "Never let a list stretch past 1180px. Grow the margins, not the cards.",
+        "section": "layout"
+      },
+      {
+        "name": "The One Shadow Rule",
+        "body": "There is one shadow and only cards get it. If something needs more emphasis, give it colour or weight, never a heavier shadow.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** take every colour, corner size and button style from `qt_theme.py` (`th.NAVY`, `th.RADIUS_CARD`, `th.primary_button_style()`), every shared widget from `qt_widgets.py`, every icon from `qt_icons.py` and every animation from `qt_motion.py`.",
+      "**Do** give each card exactly one `PrimaryButton`. Additional actions go in a `SecondaryButton` or the «إجراءات أخرى» desk menu.",
+      "**Do** align with `th.ARIGHT` / `th.ALEFT` and wrap left-to-right text (paths, Latin case numbers, dates) in `th.ltr()`.",
+      "**Do** use the Three Signals Rule for every deadline or status, with the dark tone for small text.",
+      "**Do** show «—» and an honest status when data is missing (the Honest Figures Rule).",
+      "**Do** cap content at 1180px and let compact mode handle short screens.",
+      "**Do** keep controls confident: buttons at least 38px tall with real padding, a pressed state, and a pointer cursor on every clickable element."
+    ],
+    "donts": [
+      "**Don't** recreate the old government-system look: dense grey grids, plain Windows buttons, Oracle Forms-style crowding.",
+      "**Don't** use loud colour: no gradients, no neon, no purely decorative accents.",
+      "**Don't** use any fill other than Chambers Navy for a primary action.",
+      "**Don't** add new shadows or deepen the Desk Shadow. Emphasis comes from colour and weight.",
+      "**Don't** use font weight 600, and don't write «2 يوم».",
+      "**Don't** use `muted` (#94A3B8) for readable text. Known open gap: it is still used for some past-session times, empty-tile numerals and small notes.",
+      "**Don't** use emoji as icons. Known open gap: ⚠️ ✅ ❌ remain inside the referred-page confirmation dialogs, which are business logic preserved verbatim.",
+      "**Don't** rely on hover alone for meaning. Known open gap: keyboard focus rings are not implemented yet, and needs a focus-policy line in `qt_widgets.py`."
+    ]
+  }
+}
