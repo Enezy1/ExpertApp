@@ -1247,17 +1247,21 @@ class SessionCardQt(QWidget):
         df = [clean_spaces(d) for d in defendants]
         df_s = df[0] if len(df) == 1 else '\n'.join([f"{i+1}- {d}" for i, d in enumerate(df)])
 
-        from expert_settings import minute_path
+        from expert_settings import minute_path, resolve_report_header
         path = minute_path(self.caso, num)
         os.makedirs(os.path.dirname(path), exist_ok=True)
+
+        # المحافظة/القسم: من النظام أولاً، وإلا من إعدادات الخبير — عشان
+        # شخص من قسم ثاني يقدر يطبع المحضر باسم محافظته (2026-11-09).
+        gov, dep = resolve_report_header(info)
 
         fill_mahdar(path, {
             'رقم_المحضر': str(num), 'اليوم': get_day_name(self.date),
             'التاريخ': self.date, 'رقم_الخبرة': self.caso, 'الساعة': self.time,
             'رقم_الدعوى': court_case_number, 'الواردة_من': info.get('source', ''),
             'المرفوعة_من': pl_s, 'المرفوعة_ضد': df_s,
-            'الخبير': es, 'المحافظة': info.get('governorate', ''),
-            'القسم': info.get('department', ''),
+            'الخبير': es, 'المحافظة': gov,
+            'القسم': dep,
         })
         QMessageBox.information(self, "تم", f"تم إنشاء المحضر!\n\n{th.ltr(path)}")
         os.startfile(path)
@@ -1283,14 +1287,17 @@ class SessionCardQt(QWidget):
 
         from expert_settings import load_location
         loc = load_location()
-        from expert_settings import notice_path
+        from expert_settings import notice_path, resolve_report_header
         path = notice_path(self.caso)
         os.makedirs(os.path.dirname(path), exist_ok=True)
+
+        # المحافظة/القسم: النظام أولاً، وإلا من إعدادات الخبير (2026-11-09)
+        gov, dep = resolve_report_header(info)
 
         fill_gov_notice(path, {
             'رقم_الدعوى': court_case_number, 'الواردة_من': info.get('source', ''),
             'رقم_الخبرة': self.caso, 'المرفوعة_من': pl_s, 'المرفوعة_ضد': df_s,
-            'الخبير': es, 'المحافظة': info.get('governorate', ''), 'القسم': info.get('department', ''),
+            'الخبير': es, 'المحافظة': gov, 'القسم': dep,
             'التاريخ': self.date, 'اليوم': get_day_name(self.date), 'الساعة': self.time,
             'المقر': loc.get('maqar', ''), 'الدور': loc.get('dor', ''),
             'المكتب': loc.get('maktab', ''), 'الجناح': loc.get('janah', ''), 'الجهة': gov_text,

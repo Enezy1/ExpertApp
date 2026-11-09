@@ -1,15 +1,22 @@
-# ===== updater.py — التحديث التلقائي للبرنامج عبر مجلد مشترك على الشبكة =====
+# ===== updater.py — التحديث التلقائي للبرنامج (مصدران: داخلي ثم أونلاين) =====
 """
-آلية العمل:
-  1. الأدمن يبني نسخة جديدة (build.py) وينسخ ملف EXE يدويًا لمجلد التحديثات
-     على الشبكة، ثم من صفحة الإعدادات يحفظ مسار المجلد → يُرفع مع رقم النسخة
-     لجدول app_version بـSupabase (publish_app_version).
-  2. عند بدء البرنامج (مرة وحدة فقط) يفحص check_for_update() هل النسخة
-     المنشورة أحدث من config.APP_VERSION.
-  3. لو نعم، try_download_update() ينسخ أحدث EXE من المجلد لمجلد مؤقت —
-     ويرجع None بصمت لو المسار غير قابل للوصول (الحالة الطبيعية لجهاز
-     بالبيت خارج شبكة الدوام).
-  4. apply_update() يستبدل EXE الحالي بالجديد عبر سكربت batch ويعيد التشغيل.
+آلية العمل (بعد إصلاح 9/11/2026):
+  1. عند بدء البرنامج (مرة وحدة فقط) يفحص check_for_update() هل فيه نسخة
+     أحدث من config.APP_VERSION — بمصدرين بالترتيب:
+       (أ) داخلي: مجلد على شبكة الدوام (ينسخ فيه الأدمن ملف EXE الجديد)
+       (ب) أونلاين: آخر إصدار منشور على GitHub (لو الشبكة الداخلية مو متاحة)
+  2. بعد موافقة المستخدم، download_update() ينزّل النسخة بالترتيب نفسه:
+       - من المجلد الداخلي: ينسخ **نسخة البرنامج المحمولة** (لا المثبّت)
+       - من الأونلاين: ينزّل أصل الإصدار — نسخة البرنامج أول، وإلا المثبّت
+  3. apply_update():
+       - 'program'   → يستبدل EXE الحالي (مع نسخة احتياطية .bak) ويعيد التشغيل
+       - 'installer' → يشغّل المثبّت ويتركه يحدّث (ما يستبدل البرنامج بمثبّت!)
+
+⚠️ سبب هذا الإصلاح: الكود القديم كان يتعامل مع مسار المصدر كأنه **مجلد
+محلي** (os.path.isdir) — فلما حُفظ رابط GitHub بالمكان ذاك فشل التحميل
+برسالة «ما قدرت أوصل لمجلد التحديث على الشبكة». وكان يختار «أحدث .exe»
+بالزمن — فممكن يختار **المثبّت** ويحلّ محل البرنامج (والبرنامج بعدها ما
+يحمل). واليوم: المصدر الداخلي يُجرّب أول، وبعده الأونلاين.
 
 أي فشل (لا إنترنت، لا شبكة، مجلد فاضي...) يُعامَل بصمت — لا يوقف البرنامج.
 """
@@ -20,6 +27,7 @@ import shutil
 import tempfile
 import threading
 import subprocess
+import re
 from datetime import datetime, timezone
 
 import requests
@@ -27,11 +35,29 @@ import requests
 import config
 from config import SUPABASE_URL, SUPABASE_KEY
 
+# اسم جدول التحديث بالسحابة — من config لو معرّف (لتوافق أي نسخة ثانية)،
+# وإلا الاسم الافتراضي (نفسه الذي كان مستخدم قبل).
+_APP_VERSION_TABLE = getattr(config, 'APP_VERSION_TABLE', 'app_version')
+
 _HEADERS = {
     'apikey': SUPABASE_KEY,
     'Authorization': f'Bearer {SUPABASE_KEY}',
     'Content-Type': 'application/json',
 }
+
+# ---------- مصادر التحديث ----------
+# 1) الأونلاين: مستودع GitHub — آخر إصدار (يتحلّ لملفات الإصدار عبر API).
+GITHUB_REPO = 'Enezy1/ExpertApp'
+GITHUB_LATEST_API = f'https://api.github.com/repos/{GITHUB_REPO}/releases/latest'
+GITHUB_RELEASES_PAGE = f'https://github.com/{GITHUB_REPO}/releases/latest'
+# 2) اسم ثابت لنسخة البرنامج المحمولة (ينشره مهارة الإصدار مع كل نسخة).
+ONLINE_PROGRAM_ASSET = 'ExpertApp.exe'
+ONLINE_PROGRAM_URL = f'https://github.com/{GITHUB_REPO}/releases/latest/download/{ONLINE_PROGRAM_ASSET}'
+
+# اسم نسخة البرنامج المحمولة (اللي بينسخه الأدمن لمجلد الشبكة).
+PROGRAM_EXE_NAMES = ('expertapp.exe',)
+# أي اسم فيه هذه الكلمات = مثبّت (Setup/Installer/تثبيت) — ما يستبدل به البرنامج.
+INSTALLER_HINTS = ('setup', 'install', 'installer', 'تثبيت')
 
 
 def _parse_version(text):
@@ -43,29 +69,174 @@ def _parse_version(text):
         return None
 
 
-def publish_app_version(folder_path, version=None, timeout=10):
+def _is_url(path):
+    return str(path or '').strip().lower().startswith(('http://', 'https://'))
+
+
+def _looks_like_version(value):
+    """هل القيمة رقم نسخة (أو فاضية)؟ — يحمي من صفوق جدول app_version
+    المستعملة لشيء ثاني (مثل 'ai_providers')."""
+    v = str(value or '').strip()
+    if not v:
+        return True
+    return _parse_version(v) is not None
+
+
+def _is_installer_name(name):
+    """اسم الملف يدل على مثبّت؟ (Setup / Installer / تثبيت)"""
+    low = str(name or '').lower()
+    return any(h in low for h in INSTALLER_HINTS)
+
+
+def _filename_from_url(url, fallback='ExpertApp.exe'):
+    """اسم الملف من آخر جزء بالرابط (بدون استعلامات)."""
+    try:
+        part = str(url or '').split('?')[0].rstrip('/').split('/')[-1]
+        return part or fallback
+    except Exception:
+        return fallback
+
+
+# ---------- السحابة (Supabase) ----------
+#
+# ⚠️ جدول app_version **مشترك** بين أكثر من ميزة — انتبه للصفوف:
+#   - id=1 → هذا التحديث (رقم النسخة + مسار المصدر الداخلي)
+#   - id=2 → مزوّدات الذكاء الاصطناعي (provider_sync.py) — **ما نلمسه أبداً**
+#   - id=3 → رابط التحديث الأونلاين (هذا الملف)
+UPDATE_ROW_ID = 1
+ONLINE_ROW_ID = 3
+
+
+def publish_app_version(folder_path, version=None, online_url=None, timeout=10):
     """
-    يرفع مسار مجلد التحديثات + رقم النسخة (version، وإلا APP_VERSION الحالي) للسحابة (upsert على id=1).
+    ينشر مصدرَي التحديث لكل الأجهزة:
+      - الصف 1 (id=1): مسار المجلد الداخلي على الشبكة (أو رابط، للقبول).
+      - الصف 3 (id=3): رابط التحديث الأونلاين.
+    رقم النسخة (version) يُرفع بالصف 1 (وبالصف 3 لو موجود).
+    ⚠️ الصف 2 مخصّص لمزوّدات الذكاء الاصطناعي (provider_sync) — ما نكتب فيه.
     يستدعيها الأدمن فقط من صفحة الإعدادات. يرجّع (نجح: bool, نص خطأ أو None).
     """
+    version = version or config.APP_VERSION
+    folder_path = (folder_path or '').strip()
+    online_url = (online_url or '').strip()
     try:
+        # الصف 1 — المصدر الداخلي + رقم النسخة
         r = requests.post(
-            f"{SUPABASE_URL}/rest/v1/app_version",
+            f"{SUPABASE_URL}/rest/v1/{_APP_VERSION_TABLE}",
             headers={**_HEADERS, 'Prefer': 'resolution=merge-duplicates'},
             json={
-                'id': 1,
-                'version': version or config.APP_VERSION,
+                'id': UPDATE_ROW_ID,
+                'version': version,
                 'folder_path': folder_path,
                 'released_at': datetime.now(timezone.utc).isoformat(),
             },
             timeout=timeout,
         )
-        if r.status_code in (200, 201, 204):
-            return True, None
-        return False, f"HTTP {r.status_code}: {r.text[:200]}"
+        if r.status_code not in (200, 201, 204):
+            return False, f"HTTP {r.status_code}: {r.text[:200]}"
+        # الصف 3 — المصدر الأونلاين (اختياري)
+        if online_url:
+            r2 = requests.post(
+                f"{SUPABASE_URL}/rest/v1/{_APP_VERSION_TABLE}",
+                headers={**_HEADERS, 'Prefer': 'resolution=merge-duplicates'},
+                json={
+                    'id': ONLINE_ROW_ID,
+                    'version': version,
+                    'folder_path': online_url,
+                    'released_at': datetime.now(timezone.utc).isoformat(),
+                },
+                timeout=timeout,
+            )
+            if r2.status_code not in (200, 201, 204):
+                return False, f"HTTP {r2.status_code}: {r2.text[:200]}"
+        return True, None
     except Exception as e:
         return False, str(e)
 
+
+def _cloud_row(row_id, timeout=8):
+    """صف واحد من جدول app_version ('' لو ما وصل أو ما فيه)."""
+    try:
+        r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/{_APP_VERSION_TABLE}",
+            headers=_HEADERS,
+            params={'id': f'eq.{row_id}', 'select': 'version,folder_path'},
+            timeout=timeout,
+        )
+        if r.status_code == 200 and r.json():
+            return r.json()[0] or {}
+    except Exception as e:
+        print(f"_cloud_row({row_id}) ERROR: {e}")
+    return {}
+
+
+def _cloud_version(timeout=8):
+    """رقم النسخة المنشور في السحابة (الصف 1) — '' لو ما وصل."""
+    row = _cloud_row(UPDATE_ROW_ID, timeout)
+    return (row.get('version') or '').strip()
+
+
+# ---------- تحديد المصادر ----------
+
+def _configured_sources():
+    """
+    قائمة المصادر بالترتيب المفضل: **داخلي (مجلد الشبكة) أول، وبعده أونلاين**.
+
+    - داخلي: مجلد على شبكة الدوام — من السحابة (الصف 1) أو من إعدادات جهاز
+      الأدمن. (لو المسار رابط، يُعامل كمصدر أونلاين — صار شغلاً قديماً.)
+    - أونلاين: رابط الأدمن (السحابة الصف 3 / الإعدادات المحلية) ← بعده
+      آخر إصدار على GitHub (يتحلّ لملفات الإصدار عبر API) ← بعده رابط
+      نسخة البرنامج بالاسم الثابت ← وأخيراً أي رابط قديم محفوظ.
+    - الأونلاين الافتراضي (GitHub) موجود دائماً — حتى لو ما نشر الأدمن شي.
+    """
+    internal, online, legacy_online = [], [], []
+
+    def push(bucket, loc):
+        loc = (loc or '').strip()
+        if loc and loc not in bucket:
+            bucket.append(loc)
+
+    # السحابة — الصف 1 (الداخلي) والصف 3 (الأونلاين)
+    # ⚠️ ما نقرأ الصف 2 (مزوّدات الذكاء الاصطناعي) أبداً.
+    # وحارس إضافي: صف ما رقم نسخته مو شكل نسخة (مثل 'ai_providers') → نتجاهله.
+    row1 = _cloud_row(UPDATE_ROW_ID)
+    if _looks_like_version(row1.get('version')):
+        loc = (row1.get('folder_path') or '').strip()
+        if _is_url(loc):
+            push(legacy_online, loc)      # رابط محفوظ بحقل المجلد (خطأ قديم)
+        else:
+            push(internal, loc)
+    row3 = _cloud_row(ONLINE_ROW_ID)
+    if _looks_like_version(row3.get('version')):
+        push(online, row3.get('folder_path'))
+
+    # الإعدادات المحلية (جهاز الأدمن)
+    try:
+        from expert_settings import load_update_folder, load_update_online_url
+        local_folder = (load_update_folder() or '').strip()
+        if _is_url(local_folder):
+            push(legacy_online, local_folder)
+        else:
+            push(internal, local_folder)
+        push(online, load_update_online_url())
+    except Exception:
+        pass
+
+    # الأونلاين: رابط الأدمن ← آخر إصدار (API) ← نسخة البرنامج بالاسم الثابت
+    ordered_online = list(online)
+    for loc in (GITHUB_RELEASES_PAGE, ONLINE_PROGRAM_URL):
+        if loc not in ordered_online:
+            ordered_online.append(loc)
+    for loc in legacy_online:
+        if loc not in ordered_online:
+            ordered_online.append(loc)
+
+    sources = [{'kind': 'internal', 'loc': loc, 'version': ''} for loc in internal]
+    sources += [{'kind': 'online', 'loc': loc, 'version': ''} for loc in ordered_online]
+    return sources
+
+
+# ---------- قراءة الأرقام من الملفات ----------
 
 def _exe_file_version(path):
     """يقرأ رقم النسخة المدمج بخصائص ملف EXE (نافذة Details) دون تشغيله.
@@ -98,57 +269,35 @@ def _exe_file_version(path):
         return None
 
 
-def _latest_exe(folder_path):
-    exes = glob.glob(os.path.join(folder_path, '*.exe'))
-    return max(exes, key=os.path.getmtime) if exes else None
-
-
-def check_for_update(timeout=5):
+def _pick_program_exe(folder_path):
     """
-    فحص خفيف واحد: هل النسخة الموجودة بمجلد التحديثات أحدث من النسخة الحالية؟
-    المسار من السحابة (الأدمن ينشره) وإلا من الإعداد المحلي. رقم النسخة يُقرأ
-    من خصائص ملف EXE نفسه — فلا حاجة لتحديث رقم يدويًا. لو EXE قديم بلا رقم
-    مدمج، نرجع لرقم السحابة. يرجّع (متوفر: bool, النسخة_الجديدة, folder_path).
-    أي خطأ → (False, '', '') بصمت.
+    يختار **نسخة البرنامج المحمولة** من مجلد الشبكة.
+    ⚠️ ما يختار المثبّتات (Setup/Installer/تثبيت) أبداً — لأن استبدال
+    البرنامج بمثبّت يجعله ما يحمل.
+    الأفضلية لاسم البرنامج بالضبط (ExpertApp.exe)، وإلا الأحدث زمنياً
+    من الباقي (بعد استبعاد المثبّتات).
     """
     try:
-        cloud_ver, folder = '', ''
-        try:
-            r = requests.get(
-                f"{SUPABASE_URL}/rest/v1/app_version",
-                headers=_HEADERS,
-                params={'id': 'eq.1', 'select': 'version,folder_path'},
-                timeout=timeout,
-            )
-            if r.status_code == 200 and r.json():
-                row = r.json()[0]
-                cloud_ver = row.get('version') or ''
-                folder = row.get('folder_path') or ''
-        except Exception as e:
-            print(f"check_for_update cloud ERROR: {e}")
-        if not folder:
-            try:
-                from expert_settings import load_update_folder
-                folder = load_update_folder() or ''
-            except Exception:
-                folder = ''
-        if not folder:
-            return False, '', ''
+        exes = glob.glob(os.path.join(folder_path, '*.exe'))
+    except Exception:
+        return None
+    if not exes:
+        return None
+    programs = [e for e in exes if not _is_installer_name(os.path.basename(e))]
+    if not programs:
+        return None
+    exact = [e for e in programs
+             if os.path.basename(e).lower() in PROGRAM_EXE_NAMES]
+    pool = exact or programs
+    try:
+        return max(pool, key=os.path.getmtime)
+    except Exception:
+        return pool[0]
 
-        new_ver = ''
-        if _path_reachable(folder):
-            exe = _latest_exe(folder)
-            if exe:
-                new_ver = _exe_file_version(exe) or ''
-        if not new_ver:
-            new_ver = cloud_ver
-        new_t, cur_t = _parse_version(new_ver), _parse_version(config.APP_VERSION)
-        if not new_t or not cur_t:
-            return False, '', ''
-        return (new_t > cur_t), new_ver, folder
-    except Exception as e:
-        print(f"check_for_update ERROR: {e}")
-        return False, '', ''
+
+def _latest_exe(folder_path):
+    """أحدث .exe بالمجلد (للتوافق مع الكود القديم) — يفضّل نسخة البرنامج."""
+    return _pick_program_exe(folder_path)
 
 
 def _path_reachable(path, timeout=4):
@@ -167,55 +316,302 @@ def _path_reachable(path, timeout=4):
     return result['ok'] and not t.is_alive()
 
 
-def try_download_update(folder_path):
+# ---------- الأونلاين (GitHub) ----------
+
+def _github_latest_release(timeout=8):
     """
-    لو مجلد التحديثات قابل للوصول، ينسخ أحدث ملف .exe فيه لمجلد مؤقت ويرجّع
-    مساره المحلي. غير ذلك (لا شبكة / مجلد فاضي / فشل نسخ) → None بصمت.
+    آخر إصدار منشور على GitHub: {version, assets:[{name,url}], page}.
+    يرجع None لو ما وصل (إنترنت مقطوع / حدّ المعدّل).
     """
     try:
-        if not folder_path or not _path_reachable(folder_path):
+        r = requests.get(
+            GITHUB_LATEST_API,
+            headers={'Accept': 'application/vnd.github+json', 'User-Agent': 'ExpertApp-Updater'},
+            timeout=timeout,
+        )
+        if r.status_code != 200:
             return None
-        exes = glob.glob(os.path.join(folder_path, '*.exe'))
-        if not exes:
-            return None
-        latest = max(exes, key=os.path.getmtime)
-        tmp_dir = tempfile.mkdtemp(prefix='ExpertAppUpdate_')
-        local = os.path.join(tmp_dir, os.path.basename(latest))
-        shutil.copy2(latest, local)
-        return local
+        data = r.json() or {}
+        assets = []
+        for a in (data.get('assets') or []):
+            url = a.get('browser_download_url') or ''
+            if not url:
+                continue
+            assets.append({'name': a.get('name') or _filename_from_url(url), 'url': url})
+        return {
+            'version': (data.get('tag_name') or '').lstrip('v').strip(),
+            'assets': assets,
+            'page': data.get('html_url') or GITHUB_RELEASES_PAGE,
+        }
     except Exception as e:
-        print(f"try_download_update ERROR: {e}")
+        print(f"_github_latest_release ERROR: {e}")
         return None
 
 
-def apply_update(new_exe_path):
+def _pick_online_asset(release):
     """
-    يكتب سكربت batch مؤقت: ينتظر إغلاق البرنامج، يستبدل EXE الأصلي بالجديد،
-    يعيد تشغيله، ثم يحذف نفسه. يشغّله منفصلًا ويُنهي البرنامج الحالي فورًا.
+    يختار ملف التحديث من آخر إصدار: **نسخة البرنامج أول**، وإلا المثبّت.
+    يرجّع (اسم, رابط, نوع) — النوع 'program' أو 'installer' أو ''.
+    """
+    assets = (release or {}).get('assets') or []
+    exes = [a for a in assets if str(a.get('name') or '').lower().endswith('.exe')]
+    programs = [a for a in exes if not _is_installer_name(a.get('name'))]
+    installers = [a for a in exes if _is_installer_name(a.get('name'))]
+    if programs:
+        a = programs[0]
+        return a.get('name'), a.get('url'), 'program'
+    if installers:
+        a = installers[0]
+        return a.get('name'), a.get('url'), 'installer'
+    return '', '', ''
+
+
+# ---------- الفحص ----------
+
+def _source_version(src, timeout=8):
+    """أحدث رقم نسخة معروف عند المصدر ('' لو ما قدرنا نعرف)."""
+    try:
+        if src['kind'] == 'internal':
+            if not _path_reachable(src['loc']):
+                return ''
+            exe = _pick_program_exe(src['loc'])
+            if not exe:
+                return ''
+            return _exe_file_version(exe) or ''
+        # أونلاين
+        loc = src['loc']
+        if GITHUB_REPO in loc and '/releases' in loc and 'download' not in loc:
+            rel = _github_latest_release(timeout)
+            return (rel or {}).get('version') or ''
+        m = re.search(r'(\d+)\.(\d+)\.(\d+)', loc)
+        return m.group(0) if m else ''
+    except Exception as e:
+        print(f"_source_version ERROR: {e}")
+        return ''
+
+
+def check_for_update(timeout=8):
+    """
+    فحص خفيف: هل فيه نسخة أحدث من النسخة الحالية؟
+
+    المصادر بالترتيب: **داخلي (مجلد الشبكة) أول، وبعده أونلاين (GitHub)**.
+    رقم النسخة لكل مصدر: من خصائص ملف EXE (داخلي) أو من وسم الإصدار
+    (أونلاين) — وإلا من رقم النسخة المنشور في السحابة.
+
+    يرجّع (متوفر: bool, النسخة_الجديدة, المصادر) — المصادر قائمة مصادر
+    بالترتيب وجاهزة للتنزيل. أي خطأ → (False, '', []).
+    """
+    try:
+        sources = _configured_sources()
+        best_ver = _cloud_version(timeout)
+        best_t = _parse_version(best_ver)
+        for src in sources:
+            v = _source_version(src, timeout)
+            if not v:
+                continue
+            src['version'] = v
+            vt = _parse_version(v)
+            if vt and (best_t is None or vt > best_t):
+                best_t, best_ver = vt, v
+        cur_t = _parse_version(config.APP_VERSION)
+        if not best_t or not cur_t or best_t <= cur_t:
+            return False, best_ver, sources
+        return True, best_ver, sources
+    except Exception as e:
+        print(f"check_for_update ERROR: {e}")
+        return False, '', []
+
+
+# ---------- التنزيل ----------
+
+def _copy_from_folder(folder_path):
+    """ينسخ نسخة البرنامج من مجلد الشبكة لمجلد مؤقت — ويرجّع المسار أو ''."""
+    try:
+        if not folder_path or not _path_reachable(folder_path):
+            return ''
+        exe = _pick_program_exe(folder_path)
+        if not exe:
+            return ''
+        tmp_dir = tempfile.mkdtemp(prefix='ExpertAppUpdate_')
+        local = os.path.join(tmp_dir, os.path.basename(exe))
+        shutil.copy2(exe, local)
+        # تأكد إن الملف انسخ كامل (نسخ الشبكة sometimes ينقطع)
+        try:
+            if os.path.getsize(local) != os.path.getsize(exe):
+                return ''
+        except OSError:
+            return ''
+        return local
+    except Exception as e:
+        print(f"_copy_from_folder ERROR: {e}")
+        return ''
+
+
+def _download_file(url, name=None, progress=None, timeout=120):
+    """
+    ينزّل ملف من رابط (مع متابعة الحجم لو progress وُجد).
+    يرجّع المسار المحلي أو ''.
+    """
+    tmp_dir = tempfile.mkdtemp(prefix='ExpertAppUpdate_')
+    local = os.path.join(tmp_dir, name or _filename_from_url(url))
+    try:
+        with requests.get(url, stream=True, timeout=timeout, allow_redirects=True,
+                          headers={'User-Agent': 'ExpertApp-Updater'}) as r:
+            r.raise_for_status()
+            total = int(r.headers.get('Content-Length') or 0)
+            done = 0
+            with open(local, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=256 * 1024):
+                    if not chunk:
+                        continue
+                    f.write(chunk)
+                    done += len(chunk)
+                    if progress:
+                        try:
+                            progress(done, total)
+                        except Exception:
+                            pass
+        return local
+    except Exception as e:
+        print(f"_download_file ERROR: {e}")
+        try:
+            shutil.rmtree(os.path.dirname(local), ignore_errors=True)
+        except Exception:
+            pass
+        return ''
+
+
+def _download_online(src, progress=None, timeout=120):
+    """
+    ينزّل من مصدر أونلاين.
+    يرجّع (المسار المحلي, النوع) — النوع 'program' أو 'installer'.
+    """
+    loc = src.get('loc') or ''
+    try:
+        # رابط مستودع/إصدار → نحلّه عبر API ونختار الأصل المناسب
+        if GITHUB_REPO in loc and '/releases' in loc and 'download' not in loc:
+            rel = _github_latest_release(timeout=10)
+            if not rel:
+                return '', ''
+            name, url, kind = _pick_online_asset(rel)
+            if not url:
+                return '', ''
+            path = _download_file(url, name, progress, timeout)
+            return path, kind
+        # رابط ملف مباشر
+        name = _filename_from_url(loc)
+        kind = 'installer' if _is_installer_name(name) else 'program'
+        path = _download_file(loc, name, progress, timeout)
+        return path, kind
+    except Exception as e:
+        print(f"_download_online ERROR: {e}")
+        return '', ''
+
+
+def download_update(sources, target_version='', progress=None):
+    """
+    ينزّل التحديث بالترتيب: **داخلي (مجلد الشبكة) أول، وبعده أونلاين**.
+
+    يرجّع (المسار المحلي, نوع الملف, المصدر):
+      - نوع الملف 'program'   = نسخة البرنامج (تُستبدل مكان EXE الحالي)
+      - نوع الملف 'installer' = مثبّت (يُشغَّل بدل الاستبدال)
+    أو ('', '', None) عند الفشل.
+    """
+    for src in (sources or []):
+        try:
+            # مصدر أقدم من النسخة المطلوبة (مثل رابط مثبّت مثبّت على رقم قديم)
+            # → نتخطّاه، حتى ما ننزّل نسخة أقدم.
+            if target_version and src.get('version'):
+                vt = _parse_version(src['version'])
+                tt = _parse_version(target_version)
+                if vt and tt and vt < tt:
+                    continue
+            if src.get('kind') == 'internal':
+                local = _copy_from_folder(src.get('loc'))
+                if local:
+                    return local, 'program', src
+                continue
+            local, kind = _download_online(src, progress)
+            if local:
+                return local, kind, src
+        except Exception as e:
+            print(f"download_update ERROR ({src.get('loc')}): {e}")
+    return '', '', None
+
+
+def try_download_update(folder_path):
+    """
+    (للتوافق مع الكود القديم) ينسخ أحدث نسخة من مجلد واحد — ويرجع المسار
+    المحلي أو None (نفس السلوك السابق).
+    يفضّل نسخة البرنامج على المثبّت.
+    """
+    return _copy_from_folder(folder_path) or None
+
+
+# ---------- التطبيق ----------
+
+def _backup_current_exe(current_exe):
+    """نسخة احتياطية من EXE الحالي (ترجع '' لو فشلت)."""
+    try:
+        bak = current_exe + '.bak'
+        shutil.copy2(current_exe, bak)
+        return bak
+    except Exception:
+        return ''
+
+
+def apply_update(new_exe_path, kind='program'):
+    """
+    يطبّق التحديث:
+      - 'program':   سكربت batch ينتظر إغلاق البرنامج، يستبدل EXE الحالي
+                     بالجديد (مع استرجاع النسخة القديمة لو فشل النسخ)،
+                     ويعيد التشغيل. يشغّله منفصلًا ويُنهي البرنامج الحالي.
+      - 'installer': يشغّل المثبّت (البرنامج يخرج قبلها) — ما نبدّل البرنامج
+                     بمثبّت أبداً.
     يعمل فقط من نسخة EXE المبنية (sys.frozen) — من الكود المصدري لا يفعل شي.
     """
     if not getattr(sys, 'frozen', False) or not new_exe_path:
         return False
     current_exe = sys.executable
     bat_path = os.path.join(tempfile.gettempdir(), 'expertapp_update.bat')
-    # copy بمحاولات متكررة: EXE الأصلي يظل مقفولًا لحظات بعد إغلاق البرنامج
-    script = (
-        '@echo off\r\n'
-        'ping -n 3 127.0.0.1 >nul\r\n'
-        'set tries=0\r\n'
-        ':retry\r\n'
-        f'copy /Y "{new_exe_path}" "{current_exe}" >nul 2>&1\r\n'
-        'if errorlevel 1 (\r\n'
-        '  set /a tries+=1\r\n'
-        '  if %tries% LSS 15 (\r\n'
-        '    ping -n 2 127.0.0.1 >nul\r\n'
-        '    goto retry\r\n'
-        '  )\r\n'
-        ')\r\n'
-        f'start "" "{current_exe}"\r\n'
-        f'rmdir /S /Q "{os.path.dirname(new_exe_path)}" >nul 2>&1\r\n'
-        '(goto) 2>nul & del "%~f0"\r\n'
-    )
+    tmp_dir = os.path.dirname(new_exe_path)
+
+    if kind == 'installer':
+        # مثبّت: نغلق البرنامج ثم نشغّله (يعرض معالج التثبيت للمستخدم)
+        script = (
+            '@echo off\r\n'
+            'ping -n 3 127.0.0.1 >nul\r\n'
+            f'start "" "{new_exe_path}"\r\n'
+            f'rmdir /S /Q "{tmp_dir}" >nul 2>&1\r\n'
+            '(goto) 2>nul & del "%~f0"\r\n'
+        )
+    else:
+        backup = _backup_current_exe(current_exe)
+        # copy بمحاولات متكررة: EXE الأصلي يظل مقفولًا لحظات بعد إغلاق البرنامج
+        script = (
+            '@echo off\r\n'
+            'ping -n 3 127.0.0.1 >nul\r\n'
+            'set tries=0\r\n'
+            ':retry\r\n'
+            f'copy /Y "{new_exe_path}" "{current_exe}" >nul 2>&1\r\n'
+            'if not errorlevel 1 goto :done\r\n'
+            'set /a tries+=1\r\n'
+            'if %tries% LSS 15 (\r\n'
+            '  ping -n 2 127.0.0.1 >nul\r\n'
+            '  goto retry\r\n'
+            ')\r\n'
+        )
+        if backup:
+            # فشل نهائي بالنسخ → رجّع النسخة القديمة وشغّلها
+            script += (
+                f'copy /Y "{backup}" "{current_exe}" >nul 2>&1\r\n'
+            )
+        script += (
+            ':done\r\n'
+            f'start "" "{current_exe}"\r\n'
+            f'rmdir /S /Q "{tmp_dir}" >nul 2>&1\r\n'
+            '(goto) 2>nul & del "%~f0"\r\n'
+        )
     with open(bat_path, 'w', encoding='mbcs', errors='replace') as f:
         f.write(script)
     subprocess.Popen(

@@ -485,8 +485,8 @@ class SettingsCardsTests(TmpExpertDir):
         page = sp.SettingsPage.__new__(sp.SettingsPage)
         QWidget.__init__(page)
         page._cards = []
-        orig = page._build_key_card
-        page._build_key_card = lambda which: page._cards.append(orig(which)) or page._cards[-1]
+        orig = page._build_key_row
+        page._build_key_row = lambda which: page._cards.append(orig(which)) or page._cards[-1]
         return sp, page
 
     def test_sections_and_urls(self):
@@ -497,7 +497,7 @@ class SettingsCardsTests(TmpExpertDir):
                 'openai': 'https://platform.openai.com/api-keys'}
         self.assertEqual({k: v['url'] for k, v in sp.SettingsPage.KEY_CARDS.items()}, want)
         for which, url in want.items():
-            page._build_key_card(which)
+            page._build_key_row(which)
             with mock.patch.object(sp.QDesktopServices, 'openUrl') as op:
                 page._key_widgets[which]['link'].click()
             op.assert_called_once()
@@ -507,11 +507,14 @@ class SettingsCardsTests(TmpExpertDir):
         sp, page = self.page()
         cards = sp.SettingsPage.KEY_CARDS
         self.assertIn('فعّل Cloud Vision API', cards['vision']['note'])
-        self.assertEqual(cards['openai']['note'], 'اشتراك ChatGPT Plus لا يكفي، تحتاج مفتاح API برصيد.')
+        # ملاحظة OpenAI حُذفت (نص بلا معنى) — تبقى فارغة
+        self.assertEqual(cards['openai']['note'], '')
+        for which in ('gemini', 'ocrspace'):
+            self.assertEqual(cards[which]['note'], '')
 
     def test_status_line_three_states(self):
         sp, page = self.page()
-        page._build_key_card('gemini')
+        page._build_key_row('gemini')
         for src, text in (('own', 'يُستعمل مفتاحك'), ('shared', 'لا يوجد مفتاح شخصي، يُستعمل مفتاح القسم'),
                           ('none', 'لا يوجد مفتاح')):
             with mock.patch.object(ap, 'key_source', lambda w, s=src: s), \
@@ -525,7 +528,7 @@ class SettingsCardsTests(TmpExpertDir):
         sp, page = self.page()
         saved = []
         for which in ('gemini', 'openai', 'vision', 'ocrspace'):
-            page._build_key_card(which)
+            page._build_key_row(which)
         for key in ('AQ.weird-prefix_123456789', 'AIzaSyOldStyle1234567890', 'not-a-standard-key', 'sk-abc'):
             page._key_widgets['gemini']['entry'].setText(key)
             with mock.patch.object(page, '_key_io', lambda w: (lambda: '', saved.append)), \
@@ -537,7 +540,7 @@ class SettingsCardsTests(TmpExpertDir):
 
     def test_test_button_reports_arabic_reason_without_key(self):
         sp, page = self.page()
-        page._build_key_card('openai')
+        page._build_key_row('openai')
         err = f'ProviderHTTPError: chatgpt HTTP 401: Incorrect API key provided: {OWN_O}'
         with mock.patch.object(page, '_key_io', lambda w: (lambda: OWN_O, None)), \
                 mock.patch.object(page, '_run_key_test', lambda w: (False, err)), \
@@ -549,7 +552,7 @@ class SettingsCardsTests(TmpExpertDir):
 
     def test_test_button_success(self):
         sp, page = self.page()
-        page._build_key_card('vision')
+        page._build_key_row('vision')
         with mock.patch.object(page, '_key_io', lambda w: (lambda: OWN_V, None)), \
                 mock.patch.object(page, '_run_key_test', lambda w: (True, 'حكمت المحكمة')), \
                 mock.patch.object(sp.QMessageBox, 'information') as info:
@@ -558,7 +561,7 @@ class SettingsCardsTests(TmpExpertDir):
 
     def test_test_without_personal_key_does_not_hit_network(self):
         sp, page = self.page()
-        page._build_key_card('ocrspace')
+        page._build_key_row('ocrspace')
         with mock.patch.object(page, '_key_io', lambda w: (lambda: '', None)), \
                 mock.patch.object(page, '_run_key_test') as run, \
                 mock.patch.object(sp.QMessageBox, 'warning') as warn:
@@ -567,11 +570,12 @@ class SettingsCardsTests(TmpExpertDir):
         warn.assert_called_once()
 
     def test_two_sections_order_in_general_settings(self):
+        """الترتيب: الذكاء الاصطناعي أولاً ثم OCR (10/11/2026 — طلب العنزي)."""
         sp, page = self.page()
         import inspect
         src = inspect.getsource(sp.SettingsPage._build)
-        i = [src.index(s) for s in ("قراءة المستندات (OCR)", "_build_key_card('vision')", "_build_key_card('ocrspace')",
-                                    "مفاتيح الذكاء الاصطناعي", "_build_key_card('gemini')", "_build_key_card('openai')")]
+        i = [src.index(s) for s in ("مفاتيح الذكاء الاصطناعي", "('gemini', 'openai')",
+                                    "قراءة المستندات (OCR)", "('vision', 'ocrspace')")]
         self.assertEqual(i, sorted(i))
 
 

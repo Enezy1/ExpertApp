@@ -147,6 +147,39 @@ def get_expert_names():
             conn.close()
 
 
+def get_expert_specialty(expert_name):
+    """
+    آخر 'رمز تخصص' مسجّل لاسم الخبير بجدول main (قاعدة القسم) — يُستخدم
+    لاختيار التخصص تلقائياً بصفحة 'إضافة قضية' (بدل الاختيار الافتراضي).
+
+    يرجّع نص العمود 'spe' (مثل 'كهرباء 15' / 'كمبيوتر 24') أو نص فاضي لو:
+    الاسم فاضي، أو ما فيه تخصص مسجّل لهذا الخبير، أو تعذّر الاتصال
+    (best-effort — لا يوقف الواجهة).
+    """
+    name = (expert_name or '').strip()
+    if not name:
+        return ''
+    conn = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cols = ['expr name1', 'expr name2', 'expr name3', 'expr name4', 'expr name5']
+        where = ' OR '.join('[%s] = ?' % c for c in cols)
+        cursor.execute(
+            f"SELECT [spe] FROM [main] WHERE ({where}) AND [spe] IS NOT NULL AND [spe] <> ''",
+            [name] * len(cols))
+        rows = [str(r[0]).strip() for r in cursor.fetchall() if r[0] and str(r[0]).strip()]
+        if not rows:
+            return ''
+        # تخصص الخبير عادةً ثابت — ناخذ الأكثر تكراراً
+        return max(set(rows), key=rows.count)
+    except Exception:
+        return ''
+    finally:
+        if conn:
+            conn.close()
+
+
 def get_department_week_sessions(date_from, date_to):
     """
     كل جلسات جدول [الاحداث] ضمن فترة معيّنة (كائنات datetime.date أو

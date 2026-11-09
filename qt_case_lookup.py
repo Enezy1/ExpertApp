@@ -207,7 +207,7 @@ class CaseLookupPage(QWidget):
             _switch_to_english()
         return super().eventFilter(obj, event)
 
-    def _row(self, label_text, value_text, value_color=None):
+    def _row(self, label_text, value_text, value_color=None, value_bold=True):
         row = QHBoxLayout()
         lbl = QLabel(label_text)
         lbl.setFixedWidth(160)
@@ -215,10 +215,12 @@ class CaseLookupPage(QWidget):
         lbl.setAlignment(th.ARIGHT)
         val = QLabel(value_text)
         val.setWordWrap(True)
-        val.setStyleSheet(f"color:{value_color or th.TEXT_PRIMARY}; font-size:13px; font-weight:600; border:none;")
+        weight = 700 if value_bold else 400
+        val.setStyleSheet(f"color:{value_color or th.TEXT_PRIMARY}; font-size:13px; font-weight:{weight}; border:none;")
         val.setAlignment(th.ARIGHT)
-        row.addWidget(val, 1)
+        # ⚠️ ترتيب عربي: التسمية أول يمين، والقيمة بعدها يسار (ترتيب القراءة)
         row.addWidget(lbl)
+        row.addWidget(val, 1)
         self.result_lay.addLayout(row)
 
     def _clear_result(self):
@@ -255,25 +257,38 @@ class CaseLookupPage(QWidget):
             QMessageBox.critical(self, "خطأ", f"تعذر البحث:\n{th.ltr(e)}")
             return
 
-        if not snapshot.get('found'):
+        # ⚠️ «مو موجودة» ≠ «مو مستلمة»: لازم نفرّق. رقم غلط ⇐ ما فيه
+        # قضية بالنظام. رقم صحيح بس ما استلمها الخبير ⇐ موجودة ومو
+        # موزّعة بعد (تعرض البطاقة مع سحب الملف الآلي).
+        state = snapshot.get('state') or ('ok' if snapshot.get('found') else 'not_found')
+        if state == 'not_found':
             QApplication.restoreOverrideCursor()
-            self.status_lbl.setText(f"⚠️ ما فيه أي توزيع مسجَّل لرقم الخبرة {caso_no} — تأكد من الرقم")
+            self.status_lbl.setText(
+                f"❌ ما فيه قضية برقم الخبرة {caso_no} في نظام الخبراء — تأكد من الرقم")
             return
 
-        title = ''
-        try:
-            title = get_title_fallback(self.cookies, caso_no) or ''
-        except Exception:
-            pass
-
-        autocase_no = ''
-        try:
-            autocase_no = get_autocase_no(caso_no, self.cookies)
-        except Exception:
-            pass
+        title = snapshot.get('title') or ''
+        autocase_no = snapshot.get('autocase_no') or ''
+        if state == 'not_received':
+            # الموجودة بالنظام بس مو مستلمة: الرقم الآلي والعنوان جايين
+            # مع اللقطة — ما يحتاجين طلبات زيادة.
+            if not autocase_no:
+                try:
+                    autocase_no = get_autocase_no(caso_no, self.cookies)
+                except Exception:
+                    pass
+        else:
+            try:
+                title = get_title_fallback(self.cookies, caso_no) or ''
+            except Exception:
+                pass
+            try:
+                autocase_no = get_autocase_no(caso_no, self.cookies)
+            except Exception:
+                pass
 
         upcoming = None
-        if not snapshot.get('completed'):
+        if state == 'ok' and not snapshot.get('completed'):
             try:
                 upcoming = get_upcoming_session_for_case(self.cookies, caso_no)
             except Exception:
@@ -295,31 +310,49 @@ class CaseLookupPage(QWidget):
         self.result_lay.addWidget(head)
         self.result_lay.addSpacing(6)
 
-        holders = "  ،  ".join(snapshot['current_holders'])
-        holder_kind = "لجنة" if snapshot['is_committee'] else "خبير منفرد"
-        holder_type = "استعانة" if snapshot['holder_type'] == 'secondment' else "أصالة"
-        self._row("متداولة حاليًا عند:", holders)
-        self._row("النوع:", f"{holder_kind} — {holder_type}")
-
-        ref_date = snapshot.get('last_referral_date')
-        if ref_date:
-            self._row("آخر إحالة:", ref_date.strftime('%Y/%m/%d'))
-
-        if snapshot.get('completed'):
-            cdate = snapshot.get('completion_date')
-            cdate_disp = cdate.strftime('%Y/%m/%d') if cdate else '—'
-            by = snapshot.get('completed_by') or ''
-            self._row("الحالة:", f"✅ منجزة بتاريخ {cdate_disp}" + (f" (بواسطة {by})" if by else ''),
-                       value_color=th.EMERALD_TEXT)
-        else:
-            self._row("الحالة:", "⏳ غير منجزة بعد", value_color=th.AMBER)
-            if upcoming:
-                day = _day_name(upcoming['date'])
-                date_disp = upcoming['date'].replace('-', '/')
-                self._row("الجلسة القادمة:",
-                          f"{day} {date_disp} — {upcoming['time']}" + (f" ({upcoming['title']})" if upcoming.get('title') else ''))
+        if snapshot.get('state') == 'not_received':
+            # ⚠️ موجودة بالنظام بس ما استلمها الخبير بعد — مو «غير موجودة».
+            # (رقم غلط يطلع قبل هنا — انظر _on_search.)
+            if snapshot.get('pending_distribution'):
+                self._row("الحالة:", "🕒 موجودة بالنظام — فيها إحالة بس ما استلمها الخبير بعد",
+                          value_color=th.AMBER)
             else:
-                self._row("الجلسة القادمة:", "لا توجد جلسة مسجَّلة قادمة")
+                self._row("الحالة:", "🕒 موجودة بالنظام — لم يستلمها الخبير بعد",
+                          value_color=th.AMBER)
+            self._row("متداولة حاليًا عند:", "لا يوجد خبير ماسكها بعد")
+            ref_date = snapshot.get('last_referral_date')
+            if ref_date:
+                self._row("آخر إحالة:", ref_date.strftime('%Y/%m/%d'))
+            if snapshot.get('autocase_no'):
+                self._row("الرقم الآلي:", snapshot['autocase_no'])
+            self._row("ملاحظة:", "ملفات الملف الآلي متاحة — اسحبها من الأزرار تحت.",
+                      value_color=th.TEXT_MUTED, value_bold=False)
+        else:
+            holders = "  ،  ".join(snapshot['current_holders'])
+            holder_kind = "لجنة" if snapshot['is_committee'] else "خبير منفرد"
+            holder_type = "استعانة" if snapshot['holder_type'] == 'secondment' else "أصالة"
+            self._row("متداولة حاليًا عند:", holders)
+            self._row("النوع:", f"{holder_kind} — {holder_type}")
+
+            ref_date = snapshot.get('last_referral_date')
+            if ref_date:
+                self._row("آخر إحالة:", ref_date.strftime('%Y/%m/%d'))
+
+            if snapshot.get('completed'):
+                cdate = snapshot.get('completion_date')
+                cdate_disp = cdate.strftime('%Y/%m/%d') if cdate else '—'
+                by = snapshot.get('completed_by') or ''
+                self._row("الحالة:", f"✅ منجزة بتاريخ {cdate_disp}" + (f" (بواسطة {by})" if by else ''),
+                           value_color=th.EMERALD_TEXT)
+            else:
+                self._row("الحالة:", "⏳ غير منجزة بعد", value_color=th.AMBER)
+                if upcoming:
+                    day = _day_name(upcoming['date'])
+                    date_disp = upcoming['date'].replace('-', '/')
+                    self._row("الجلسة القادمة:",
+                              f"{day} {date_disp} — {upcoming['time']}" + (f" ({upcoming['title']})" if upcoming.get('title') else ''))
+                else:
+                    self._row("الجلسة القادمة:", "لا توجد جلسة مسجَّلة قادمة")
 
         self.result_lay.addSpacing(10)
         btn_row = QHBoxLayout()

@@ -145,6 +145,39 @@ def _get_autocase_no(caso_no, cookies):
         return ''
 
 
+def _merge_pdfs(paths, out_path):
+    """
+    يدمج ملفات PDF بالترتيب المعطى في **ملف واحد** (الصفحات كما هي):
+   heds صحيفة الدعوى أول ثم حكم الإحالة تحتها — للمعاينة والطباعة معاً.
+
+    fitz (MuPDF) أول لأنه أقوى مع الملفات الممسوحة، وpypdf احتياط.
+    """
+    paths = [p for p in (paths or []) if p and os.path.exists(p)]
+    if not paths:
+        raise FileNotFoundError('ما فيه ملفات للدمج')
+    try:
+        import fitz
+        out = fitz.open()
+        try:
+            for p in paths:
+                with fitz.open(p) as src:
+                    out.insert_pdf(src)
+            out.save(out_path)
+        finally:
+            out.close()
+        return out_path
+    except Exception:
+        pass
+    from pypdf import PdfReader, PdfWriter
+    writer = PdfWriter()
+    for p in paths:
+        for page in PdfReader(p).pages:
+            writer.add_page(page)
+    with open(out_path, 'wb') as f:
+        writer.write(f)
+    return out_path
+
+
 # تنسيق بطاقة الملصق (العنوان + الصفوف) — مشترك بين الملصق الفردي والصفحة
 # المدمجة عشان شكل كل ملصق يبقى متطابق بالحالتين.
 _LABEL_CARD_CSS = """  .title {
@@ -862,6 +895,12 @@ class Main1Page(QWidget):
     def eventFilter(self, obj, event):
         if obj is self.ref_entry and event.type() == QEvent.Type.FocusIn:
             self._force_english_keyboard()
+        # ⚠️ القوائم ما تاخذ عجلة الفأرة: كانت تغيّر قيمتها تلقائياً
+        # (الخبير مثلاً) والصفحة توقّفت عن التمرير. نخلّي العجلة تمرّر
+        # الصفحة بدالها، وتغيير القيمة من القائمة نفسها.
+        if event.type() == QEvent.Type.Wheel and isinstance(obj, QComboBox):
+            event.ignore()
+            return True
         return super().eventFilter(obj, event)
 
     def _force_english_keyboard(self):
@@ -950,6 +989,7 @@ class Main1Page(QWidget):
             )
             if judgment and path:
                 judgment_found = True
+                updates['judgment_path'] = path      # زر المعاينة 👁 يفتحه مع صحيفة الدعوى
                 # allow_local: بلا اتصال/مزود تُستخرج على الجهاز — الخبير يراجعها بالنموذج قبل الحفظ
                 data, error = extract_from_pdf(path, allow_local=True, force_ai=force_ai, status=say)
                 if not error and data:
@@ -1183,7 +1223,46 @@ class Main1Page(QWidget):
         for i, e in enumerate(exps[:5], start=1):
             result[f'expr_name{i}'] = e.get('name', '')
 
+        # 3 خبراء مسجّلين على القضية ⇐ لجنة ثلاثية تلقائياً.
+        if len(exps) >= 3:
+            result['comm'] = 'لجنة ثلاثية'
+
+        # التخصص: من آخر تخصص مسجّل للخبير المسند له بقاعدة القسم، وإلا من
+        # تخصص الخبير الحالي المحفوظ بالإعدادات — بدل 'كهرباء 15' دائماً.
+        self._apply_specialty_auto(result)
+
         return result, used_local, judgment_found
+
+    def _apply_specialty_auto(self, result):
+        """
+        يختار 'رمز التخصص' تلقائياً حسب الخبير المسند له القضية:
+          1) آخر تخصص مسجّل له بقاعدة القسم (جدول main، عمود spe).
+          2) وإلا تخصص الخبير الحالي المحفوظ بالإعدادات ('حاسب آلي' ⇐ كمبيوتر).
+        ما يغيّر شي لو ما لقى إجابة — يبقى الاختيار الافتراضي.
+        """
+        try:
+            from db_writer import get_expert_specialty
+            expert_name = ''
+            for i in range(1, 6):
+                name = (result.get(f'expr_name{i}') or '').strip()
+                if name:
+                    expert_name = name
+                    break
+            spe = get_expert_specialty(expert_name) if expert_name else ''
+        except Exception:
+            spe = ''
+        if spe in SPECIALTY_OPTIONS:
+            result['spe'] = spe
+            return
+        try:
+            from expert_settings import load_specialty
+            current = (load_specialty() or '')
+        except Exception:
+            current = ''
+        if 'كمبيوتر' in current or 'حاسب' in current:
+            result['spe'] = 'كمبيوتر 24'
+        elif 'كهرباء' in current:
+            result['spe'] = 'كهرباء 15'
 
     # ---------- نموذج المراجعة ----------
     def _clear_review_extras(self):
@@ -1213,8 +1292,9 @@ class Main1Page(QWidget):
         entry.setStyleSheet(_field_qss())
         entry.setAlignment(th.ARIGHT)
         entry.setText(self.extracted.get(key, default) or '')
-        lay.addWidget(entry, 1)
+        # ترتيب عربي: التسمية أول يمين، والحقل بعدها يسار
         lay.addWidget(lbl)
+        lay.addWidget(entry, 1)
         self.entries[key] = entry
         self.review_lay.insertWidget(self.review_lay.count() - 1, row)
 
@@ -1232,12 +1312,13 @@ class Main1Page(QWidget):
         combo.addItems(options)
         combo.setStyleSheet(_field_qss())
         combo.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        combo.installEventFilter(self)      # العجلة تمرّر الصفحة (ما تغيّر القيمة)
         current = self.extracted.get(key, default) or (options[0] if options else '')
         idx = combo.findText(current)
         if idx >= 0:
             combo.setCurrentIndex(idx)
-        lay.addWidget(combo, 1)
         lay.addWidget(lbl)
+        lay.addWidget(combo, 1)
         self.entries[key] = combo
         self.review_lay.insertWidget(self.review_lay.count() - 1, row)
 
@@ -1255,6 +1336,7 @@ class Main1Page(QWidget):
         combo.addItems([''] + options)
         combo.setStyleSheet(_field_qss())
         combo.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        combo.installEventFilter(self)      # العجلة تمرّر الصفحة (ما تغيّر القيمة)
         current = (self.extracted.get(key, '') or '').strip()
         if current:
             idx = combo.findText(current)
@@ -1262,8 +1344,8 @@ class Main1Page(QWidget):
                 combo.setCurrentIndex(idx)
             else:
                 combo.setEditText(current)
-        lay.addWidget(combo, 1)
         lay.addWidget(lbl)
+        lay.addWidget(combo, 1)
         self.entries[key] = combo
         self.review_lay.insertWidget(self.review_lay.count() - 1, row)
 
@@ -1339,6 +1421,11 @@ class Main1Page(QWidget):
         btns_row = QHBoxLayout()
         print_btn = SecondaryButton("🖨️ طباعة ملصق نصف ورقة")
         print_btn.clicked.connect(self._on_print_label_clicked)
+        # 👁 معاينة: صحيفة الدعوى فوق وحكم الإحالة تحت — بنفس الملف، ونافذة
+        # المعاينة الأصلية (مع زر طباعة) — 2026-11-10 (طلب العنزي).
+        eye_btn = SecondaryButton("👁")
+        eye_btn.setToolTip("معاينة صحيفة الدعوى + حكم الإحالة (ملف واحد) — والطباعة منها")
+        eye_btn.clicked.connect(self._on_preview_merged_clicked)
         force_ai_btn = SecondaryButton("🔄 إعادة الاستخراج")
         force_ai_btn.clicked.connect(self._on_force_ai_clicked)
         upload_btn = SecondaryButton("📎 رفع حكم إحالة يدويًا")
@@ -1349,6 +1436,7 @@ class Main1Page(QWidget):
         btns_row.addWidget(force_ai_btn)
         btns_row.addWidget(upload_btn)
         btns_row.addWidget(print_btn)
+        btns_row.addWidget(eye_btn)
         self.review_lay.insertLayout(self.review_lay.count() - 1, btns_row)
 
     def _on_type_changed(self, text):
@@ -1370,6 +1458,90 @@ class Main1Page(QWidget):
             os.startfile(path)
         except Exception as e:
             QMessageBox.critical(self, "خطأ", f"تعذّرت طباعة الملصق:\n{th.ltr(e)}")
+
+    # ---------- 👁 معاينة الملف: صحيفة الدعوى + حكم الإحالة (ملف واحد) ----------
+    def _print_dir(self):
+        """مجلد حفظ الملفات المنزَّلة (نفس مجلد الاستخراج)."""
+        d = os.path.join(os.path.expanduser("~"), "Desktop", "judgments")
+        try:
+            os.makedirs(d, exist_ok=True)
+        except Exception:
+            pass
+        return d
+
+    # ---------- 👁 معاينة الملف: صحيفة الدعوى فوق وحكم الإحالة تحت (ملف واحد) ----------
+    def _on_preview_merged_clicked(self):
+        """
+        يفتح نافذة المعاينة الأصلية (مع زر طباعة) على **ملف واحد** فيه:
+        صحيفة الدعوى أول، ثم حكم الإحالة تحتها.
+        ينزّل أي ملف ناقص من الملف الآلي قبل الدمج.
+        """
+        caso_no = (self.extracted.get('caso_no') or '').strip()
+        autocase_no = (self.extracted.get('autocase_no') or '').strip()
+        if not caso_no:
+            QMessageBox.warning(self, "تنبيه", "استخرج بيانات القضية أولاً")
+            return
+        if not autocase_no:
+            QMessageBox.warning(self, "غير متوفر",
+                                "ما أعرف الرقم الآلي للقضية — استخرج البيانات أولاً.")
+            return
+        out_dir = self._print_dir()
+
+        # 1) حكم الإحالة (موجود من الاستخراج غالباً)
+        judgment_path = (self.extracted.get('judgment_path') or '').strip()
+        if not (judgment_path and os.path.exists(judgment_path)
+                and os.path.getsize(judgment_path) > 0):
+            save_path = os.path.join(out_dir, f"{caso_no}_MAIN1.pdf")
+            self.status_lbl.setText("⏳ جاري تحميل حكم الإحالة من الملف الآلي…")
+            QApplication.processEvents()
+            try:
+                from documents import get_referral_judgment_for_case
+                _judgment, path = get_referral_judgment_for_case(
+                    self.cookies, autocase_no, "309", save_path)
+            except Exception as e:
+                self.status_lbl.setText("")
+                QMessageBox.critical(self, "خطأ", f"تعذّر تحميل حكم الإحالة:\n{th.ltr(e)}")
+                return
+            self.status_lbl.setText("")
+            if not path or not os.path.exists(path):
+                QMessageBox.warning(self, "غير متوفر",
+                                    "ما لقيت حكم إحالة في الملف الآلي لهذه القضية.")
+                return
+            judgment_path = path
+            self.extracted['judgment_path'] = path
+
+        # 2) صحيفة الدعوى
+        claim_path = os.path.join(out_dir, f"{caso_no}_CLAIM.pdf")
+        if not (os.path.exists(claim_path) and os.path.getsize(claim_path) > 0):
+            self.status_lbl.setText("⏳ جاري تحميل صحيفة الدعوى من الملف الآلي…")
+            QApplication.processEvents()
+            try:
+                from documents import get_claim_for_case
+                _row, path, status = get_claim_for_case(
+                    self.cookies, autocase_no, "309", claim_path)
+            except Exception as e:
+                self.status_lbl.setText("")
+                QMessageBox.critical(self, "خطأ", f"تعذّر تحميل صحيفة الدعوى:\n{th.ltr(e)}")
+                return
+            self.status_lbl.setText("")
+            if status != 'OK' or not path or not os.path.exists(path):
+                QMessageBox.information(
+                    self, "غير متوفر",
+                    "ما لقيت صحيفة دعوى في الملف الآلي — بتعرض حكم الإحالة بس.")
+                claim_path = None
+            else:
+                claim_path = path
+
+        # 3) دمج: صحيفة الدعوى فوق وحكم الإحالة تحت — نفس الملف
+        parts = [p for p in (claim_path, judgment_path) if p]
+        merged = os.path.join(out_dir, f"{caso_no}_PREVIEW.pdf")
+        try:
+            _merge_pdfs(parts, merged)
+        except Exception as e:
+            QMessageBox.critical(self, "خطأ", f"تعذّر تجهيز ملف المعاينة:\n{th.ltr(e)}")
+            return
+        from qt_case_lookup import show_pdf_preview
+        show_pdf_preview(self, merged, f"صحيفة الدعوى + حكم الإحالة — {caso_no}")
 
     def _on_save_clicked(self):
         values = {k: self._entry_value(k) for k in self.entries}

@@ -68,13 +68,23 @@ def name_matches(my_name, full_name):
     return first in full_name and last in full_name
 
 
-def _parse_flow(cookies, caso_no):
+def _flow_html(cookies, caso_no):
+    """HTML صفحة سجل الحركة (ECS_CASE_FLOW) — طلب واحد."""
     r = requests.post(f"{BASE_URL}/ECS_CASE_FLOW",
         data={'P_CASES': caso_no}, cookies=cookies, verify=False, timeout=15)
-    tds = re.findall(r'<td[^>]*>(.*?)</td>', r.text, re.DOTALL)
+    return r.text or ''
+
+
+def _parse_flow_html(html):
+    """خلايا سجل الحركة من HTML (الفارغة تنحذف) — نفس _parse_flow بالضبط."""
+    tds = re.findall(r'<td[^>]*>(.*?)</td>', html or '', re.DOTALL)
     tds = [re.sub(r'<[^>]+>', ' ', t).strip() for t in tds]
     tds = [t for t in tds if t and t != '&nbsp']
     return tds
+
+
+def _parse_flow(cookies, caso_no):
+    return _parse_flow_html(_flow_html(cookies, caso_no))
 
 
 # تسميات الإجراءات الإدارية المعروفة (بلوك 7 خانات: تسمية، قسم1،
@@ -290,18 +300,200 @@ def get_autocase_no(caso_no, cookies):
         return ''
 
 
+# ===== «بحث قضية»: هل القضية موجودة؟ ومين ماسكها؟ (فصل البعدين) =====
+#
+# ⚠️ المشكلة اللي هذا الإصلاح يعالجها:
+# get_case_snapshot كان يجيب إجابته من «كتل التوزيع» بسجل الحركة فقط —
+# أي: «فيه توزيع للخبراء؟». فأي قضية موجودة بالنظام بس ما استلمها
+# الخبير بعد (قضية بالمحالة قبل «مباشرة القضية»، أو دعوى جديدة
+# بالوزارة) كانت ترجع found=False ⇒ صفحة «بحث قضية» تقول «ما فيه أي
+# توزيع مسجَّل لرقم الخبرة … تأكد من الرقم» ⇒ وتُقرأ عند الخبير كـ
+# «القضية غير موجودة» — مع إن ملفاتها موجودة والسحب منها يشتغل (نفس
+# مصدر «إضافة قضية» اللي ما يسأل عن التوزيع أصلاً).
+#
+# الحل: نفصل سؤالين — (١) هل القضية موجودة بالنظام؟ (من
+# basic_info_result.php — يشتغل لأي رقم خبرة) و(٢) مين ماسكها؟ (من
+# كتل التوزيع بسجل الحركة). pages «بحث قضية» تعرض الحالة الحقيقية.
+
+
+def _cell_text(raw):
+    """نص خلية HTML — '&nbsp' تتحسب فاضية (بس موضعها يبقى — ما تنحذف)."""
+    t = re.sub(r'<[^>]+>', ' ', raw or '').strip()
+    if t in ('', '&nbsp', '&nbsp;'):
+        return ''
+    return t
+
+
+def _flow_rows(html):
+    """
+    صفوف سجل الحركة — كل صف بقائمته وبمواضع خاناته (الخانات الفاضية
+    ما تنحذف، على عكس _parse_flow القديم).
+
+    ليش: _parse_flow يحذف الخانات الفاضية ← تتزحزح مواضع البلوك
+    (7 خانات) ← الصف كله ما ينقرأ (نفس المشكلة الموثّقة بملاحظة
+    «إعادة توزيع القضية» فوق).
+
+    طريقة القسمة: كل صف يبدأ بتسمية معروفة (تسمية إجراء إداري أو نوع
+    جلسة)، والخانات اللي بعدها خانات نفس الصف.
+    """
+    cells = [_cell_text(c) for c in re.findall(r'<td[^>]*>(.*?)</td>', html or '', re.DOTALL)]
+    rows, cur = [], None
+    for c in cells:
+        if c and (c in ADMIN_ACTION_LABELS or any(c.startswith(p) for p in SESSION_TYPE_PREFIXES)):
+            if cur:
+                rows.append(cur)
+            cur = [c]
+        elif cur is not None:
+            cur.append(c)
+    if cur:
+        rows.append(cur)
+    return rows
+
+
+def _distributions_from_rows(rows):
+    """
+    قوائم التوزيع من صفوف سجل الحركة.
+
+    بنية الصف (موثّقة، ونفس مواضع get_experts بـui.py):
+      [تسمية، من قسم، من موظف، إلى قسم، إلى موظف، رقم إجراء، تاريخ]
+    ⇒ المستلم = الخانة رقم 4، والتاريخ = آخر خانة على صيغة DD/MM/YYYY.
+
+    ⚠️ لو الصف ناقص خانة (الخانة محذوفة من HTML كلّياً) ما نقدر نحدد
+    المستلم بثقة ⇒ نرجّع الصف بلا اسم (يعني: إحالة موجودة بس المستلم
+    مو محدد ⇒ القضية مو مستلمة بعد) بدل ما نخمّن اسم غلط.
+    """
+    out = []
+    for row in rows or []:
+        if not row:
+            continue
+        label = row[0]
+        is_normal = label == NORMAL_DIST_LABEL
+        is_second = label in SECONDMENT_DIST_LABELS
+        if not (is_normal or is_second):
+            continue
+        date_str = ''
+        for c in reversed(row[1:]):
+            if DATE_RE.match(c):
+                date_str = c
+                break
+        if not date_str:
+            continue
+        name = ''
+        if len(row) >= 7:
+            cand = row[4].strip()
+            if len(cand) > 5 and not cand.isdigit():
+                name = cand
+        try:
+            d = datetime.strptime(date_str, '%d/%m/%Y')
+        except Exception:
+            continue
+        out.append({'type': 'secondment' if is_second else 'normal',
+                    'name': name, 'date': d})
+    return out
+
+
+def _cluster_distributions(dists):
+    """نفس منطق _build_dist_clusters — بس على قوائم التوزيع الجاهزة."""
+    clusters = []
+    for e in dists:
+        prev = clusters[-1] if clusters else None
+        can_merge = (e['type'] == 'normal' and prev is not None
+                     and prev['type'] == 'normal'
+                     and abs((e['date'] - prev['date']).days) <= MAX_CLUSTER_GAP_DAYS)
+        if can_merge:
+            if e['name'] not in prev['members']:
+                prev['members'].append(e['name'])
+        else:
+            clusters.append({'type': e['type'], 'members': [e['name']], 'date': e['date']})
+    return clusters
+
+
+def get_case_basic_info(caso_no, cookies):
+    """
+    هل القضية موجودة بالنظام؟ + الرقم الآلي + عنوانها — من
+    basic_info_result.php بواحد (يعمل لأي رقم خبرة، مو بس للمتداولة
+    عندي شخصيًا).
+
+    ⚠️ القياس (9/11/2026): الرقم الحقيقي يرجّع صفحة فيها رقم الخبرة
+    والأطراف والرقم الآلي (~840 بايت)، والرقم الغلط يرجّع رد فاضي
+    (2 بايت) — فالفرق واضح وما فيه تخمين.
+    """
+    out = {'exists': False, 'autocase_no': '', 'title': '', 'case_no': ''}
+    try:
+        r = requests.post(f"{BASE_URL}/includes/basic_info_result.php",
+            data={'id': '1', 'title': caso_no, 'met_date': '', 'met_time': '',
+                  'description': caso_no},
+            cookies=cookies, verify=False, timeout=10)
+        text = r.text or ''
+    except Exception:
+        return out
+    if not text.strip():
+        return out
+    h4s = [re.sub(r'<[^>]+>', '', h).strip() for h in
+           re.findall(r'<h4[^>]*>(.*?)</h4>', text, re.DOTALL)]
+    key = re.sub(r'\s+', '', caso_no or '').upper()
+    for h in h4s:
+        if re.sub(r'\s+', '', h).upper() == key:
+            out['case_no'] = h
+            break
+    nums = re.findall(r'\b\d{6,9}\b', text)
+    if nums:
+        out['autocase_no'] = nums[0]
+    for h in h4s:
+        if 'المدعى عليه' in h:
+            out['title'] = h.split(':', 1)[-1].strip()
+            break
+    out['exists'] = bool(out['case_no']) or (bool(out['autocase_no']) and bool(out['title']))
+    return out
+
+
 def get_case_snapshot(cookies, caso_no):
     """
     لقطة شاملة عن حالة أي قضية الآن — بغض النظر عن هوية الخبير
     (لاستخدام رئيس القسم بأداة البحث). يرجع dict:
-      found: bool — فيه أي توزيع أصلاً
+      found: bool — فيه معلومة نعرضها (القضية موجودة بالنظام)
+      state: 'ok' (موجودة + نعرف مين ماسكها) | 'not_received' (موجودة
+             بس ما استلمها الخبير بعد) | 'not_found' (الرقم مو موجود
+             بالنظام أصلاً)
       is_committee, holder_type ('normal'|'secondment'), current_holders
       last_referral_date, completed, completion_date, completed_by
+      autocase_no, title (لحالة not_received)
+
+    ⚠️ «الوجود» منفصل عن «المالك» عن قصد — قبل الفصل كان found = «فيه
+    كتلة توزيع» ⇒ القضية اللي ما استلمها الخبير كانت تظهر كأنها غير
+    موجودة.
     """
-    tds = _parse_flow(cookies, caso_no)
-    clusters = _build_dist_clusters(tds)
+    html = _flow_html(cookies, caso_no)
+    tds = _parse_flow_html(html)
+    clusters = _build_dist_clusters(tds)          # نفس منطق اليوم بالضبط
+    dists = []
     if not clusters:
-        return {'found': False}
+        # خطة بديلة: قراءة الصفوف بمرونة (تحافظ على مواضع الخانات)
+        dists = _distributions_from_rows(_flow_rows(html))
+        named = [d for d in dists if d['name']]
+        if named:
+            clusters = _cluster_distributions(named)
+
+    if not clusters:
+        basic = get_case_basic_info(caso_no, cookies)
+        pending_date = max((d['date'] for d in dists), default=None)
+        if not basic['exists']:
+            return {
+                'found': False, 'state': 'not_found', 'exists': False,
+                'is_committee': False, 'holder_type': '', 'current_holders': [],
+                'last_referral_date': None, 'completed': False,
+                'completion_date': None, 'completed_by': None,
+                'pending_distribution': False, 'autocase_no': '', 'title': '',
+            }
+        # موجودة بالنظام بس ما فيه توزيع نقدر نحدد مالكه ⇒ مو مستلمة بعد
+        return {
+            'found': True, 'state': 'not_received', 'exists': True,
+            'is_committee': False, 'holder_type': '', 'current_holders': [],
+            'last_referral_date': pending_date, 'completed': False,
+            'completion_date': None, 'completed_by': None,
+            'pending_distribution': bool(dists),
+            'autocase_no': basic['autocase_no'], 'title': basic['title'],
+        }
 
     latest = clusters[-1]
     completions = _completions_for(tds, latest['members'])
@@ -311,7 +503,7 @@ def get_case_snapshot(cookies, caso_no):
     completed_by = next((n for d, n in completions if d == completion_date), None) if completed else None
 
     return {
-        'found': True,
+        'found': True, 'state': 'ok', 'exists': True,
         'is_committee': len(latest['members']) > 1,
         'holder_type': latest['type'],
         'current_holders': latest['members'],
@@ -319,6 +511,7 @@ def get_case_snapshot(cookies, caso_no):
         'completed': completed,
         'completion_date': completion_date,
         'completed_by': completed_by,
+        'pending_distribution': False, 'autocase_no': '', 'title': '',
     }
 
 

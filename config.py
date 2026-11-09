@@ -22,7 +22,7 @@ TEMPLATE_PATH = os.path.join(BASE_DIR, "ma7dar_template.dotx")
 GOV_TEMPLATE_PATH = os.path.join(BASE_DIR, "اخطار_حكومه.dotx")
 
 # إصدار البرنامج (major.minor.patch) — يُحدَّث تلقائيًا بواسطة build.py ولا يُعدَّل يدويًا
-APP_VERSION = "1.2.8"
+APP_VERSION = "1.2.9"
 
 # رابط النظام
 BASE_URL = "https://expertapp.moj.gov.kw"

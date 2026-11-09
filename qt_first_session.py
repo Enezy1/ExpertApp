@@ -682,14 +682,19 @@ class FirstSessionControllerQt:
             day_name = get_day_name(session1_date_raw)
             date_str = datetime.strptime(session1_date_raw, '%Y/%m/%d').strftime('%d/%m/%Y')
 
+            # المحافظة/القسم: من النظام أولاً، وإلا من إعدادات الخبير — عشان
+            # شخص من قسم ثاني يقدر يطبع المحضر باسم محافظته (2026-11-09).
+            from expert_settings import resolve_report_header
+            gov, dep = resolve_report_header(info)
+
             data = {
                 'رقم_المحضر': '1',
                 'اليوم': day_name,
                 'التاريخ': date_str,
                 'رقم_الخبرة': self.caso_no,
                 'الساعة': session1_time,
-                'المحافظة': info.get('governorate', 'العاصمة'),
-                'القسم': info.get('department', ''),
+                'المحافظة': gov,
+                'القسم': dep,
                 'رقم_الدعوى': court_case_number,
                 'الواردة_من': info.get('source', ''),
                 'المرفوعة_من': pl_s,

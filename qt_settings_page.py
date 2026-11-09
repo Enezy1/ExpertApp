@@ -4,7 +4,8 @@
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QScrollArea,
-    QMessageBox, QApplication, QComboBox, QFileDialog, QPushButton
+    QMessageBox, QApplication, QComboBox, QFileDialog, QPushButton,
+    QFrame,
 )
 from PyQt6.QtCore import QUrl
 from PyQt6.QtGui import QIcon, QDesktopServices
@@ -17,6 +18,7 @@ from gemini_config import save_api_key, load_api_key, mask_key
 from expert_settings import (
     save_specialty, load_specialty, save_location, load_location,
     save_update_folder, load_update_folder,
+    save_update_online_url, load_update_online_url,
     save_update_version, load_update_version,
     save_reports_root, load_reports_root,
     save_minutes_root, load_minutes_root, default_minutes_root,
@@ -123,6 +125,9 @@ class SettingsPage(QWidget):
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        # بدون تمرير أفقي: المحتوى ياخذ عرض الصفحة كامل (ما ينضغط نص3298)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         content = QWidget()
         c_lay = QVBoxLayout(content)
         c_lay.setContentsMargins(2, 2, 2, 2)
@@ -131,17 +136,20 @@ class SettingsPage(QWidget):
         # قسمان (2026-10-19): «الإعدادات العامة» للجميع، و«التشخيص» للمالك فقط (لا يظهر لغيره أصلاً)
         c_lay.addWidget(self._build_expert_card())
         c_lay.addWidget(self._build_reports_root_card())      # إعداد واحد: مجلد حفظ مستندات القضايا (المحاضر داخله)
-        c_lay.addWidget(self._section_header(
-            "قراءة المستندات (OCR)",
-            "لقراءة الأحكام والمستندات الممسوحة. مفتاحك الشخصي يُستعمل وحده؛ ولو لم تضف مفتاحاً يُستعمل مفتاح القسم (إن وُجد)."))
-        c_lay.addWidget(self._build_key_card('vision'))
-        c_lay.addWidget(self._build_key_card('ocrspace'))
-        c_lay.addWidget(self._section_header(
-            "مفاتيح الذكاء الاصطناعي",
-            "لاستخراج المعلومات وصياغة التقرير والبحث. مفتاحك الشخصي لمزوّد يحجب مفتاح القسم لنفس المزوّد، "
-            "وإن فشل (منتهٍ أو بلا رصيد) يُبلَّغ به ولا ينتقل البرنامج لمفتاح القسم بصمت."))
-        c_lay.addWidget(self._build_key_card('gemini'))
-        c_lay.addWidget(self._build_key_card('openai'))
+        # ===== المفاتيح: قسمان تحت بعض — الذكاء الاصطناعي أولاً ثم OCR =====
+        # (10/11/2026 — طلب العنزي: «خلهم تحت بعض»، والذكاء قبل الـOCR؛
+        #  وكل قسم على طراز قوائم قوقل: شريط عنوان + شارة + صفوف.)
+        c_lay.addWidget(self._build_keys_card(
+            "🔑 مفاتيح الذكاء الاصطناعي",
+            "لاستخراج المعلومات وصياغة التقرير والبحث. مفتاحك الشخصي لمزوّد يحجب "
+            "مفتاح القسم لنفس المزوّد، وإن فشل (منتهٍ أو بلا رصيد) يُبلَّغ به ولا "
+            "ينتقل البرنامج لمفتاح القسم بصمت.",
+            ('gemini', 'openai')))
+        c_lay.addWidget(self._build_keys_card(
+            "📄 قراءة المستندات (OCR)",
+            "لقراءة الأحكام والمستندات الممسوحة. مفتاحك الشخصي يُستعمل وحده؛ "
+            "ولو لم تضف مفتاحاً يُستعمل مفتاح القسم (إن وُجد).",
+            ('vision', 'ocrspace')))
         c_lay.addWidget(self._build_icloud_card())
         c_lay.addStretch()
         from gemini_config import is_admin
@@ -180,6 +188,7 @@ class SettingsPage(QWidget):
                 sc = QScrollArea()
                 sc.setWidgetResizable(True)
                 sc.setFrameShape(QScrollArea.Shape.NoFrame)
+                sc.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
                 sc.setWidget(w)
                 tabs.addTab(sc, name)
             root.addWidget(tabs, 1)
@@ -253,51 +262,84 @@ class SettingsPage(QWidget):
             'sub': "مفتاح OpenAI API؛ يختار البرنامج أقوى نموذج متاح لمفتاحك تلقائياً. لو أضفته يُستخدم بدل مفتاح القسم.",
             'url': "https://platform.openai.com/api-keys",
             'link': "إنشاء مفتاح OpenAI API",
-            'note': "اشتراك ChatGPT Plus لا يكفي، تحتاج مفتاح API برصيد.",
+            'note': "",
         },
     }
-
-    def _section_header(self, text, sub=""):
-        w = QWidget()
-        lay = QVBoxLayout(w)
-        lay.setContentsMargins(2, 8, 2, 0)
-        lay.setSpacing(2)
-        t = QLabel(text)
-        t.setStyleSheet(f"color:{th.NAVY}; font-size:17px; font-weight:800; border:none;")
-        t.setAlignment(th.ARIGHT)
-        lay.addWidget(t)
-        if sub:
-            s = QLabel(sub)
-            s.setWordWrap(True)
-            s.setStyleSheet(f"color:{th.TEXT_MUTED}; font-size:11px; border:none;")
-            s.setAlignment(th.ARIGHT)
-            lay.addWidget(s)
-        return w
 
     def _open_url(self, url):
         QDesktopServices.openUrl(QUrl(url))
 
-    def _build_key_card(self, which):
-        spec = self.KEY_CARDS[which]
+    def _build_keys_card(self, title_text, note, keys):
+        """
+        قائمة مفاتيح على طراز قوائم قوقل: **شريط عنوان** (خلفية خفيفة + عنوان
+        + شرح) وتحته **صف لكل مزوّد** (سطرين بس) — بدل بطاقة طويلة لكل مزوّد
+        (7 سطور). 10/11/2026.
+        """
         card = Card()
         lay = QVBoxLayout(card)
-        lay.setContentsMargins(20, 18, 20, 18)
-        lay.setSpacing(6)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(0)
+
+        # ---------- شريط العنوان ----------
+        head = QWidget()
+        head.setObjectName('keys_head')
+        head.setStyleSheet(
+            f"QWidget#keys_head {{ background:{th.NAVY_SOFT};"
+            " border-top-left-radius:16px; border-top-right-radius:16px; }")
+        h = QHBoxLayout(head)
+        h.setContentsMargins(18, 12, 18, 12)
+        h.setSpacing(10)
+        col = QVBoxLayout()
+        col.setSpacing(3)
+        t = QLabel(title_text)
+        t.setStyleSheet(f"color:{th.TEXT_PRIMARY}; font-size:16px; font-weight:800; border:none;")
+        t.setAlignment(th.ARIGHT)
+        col.addWidget(t)
+        if note:
+            n = QLabel(note)
+            n.setWordWrap(True)
+            n.setStyleSheet(f"color:{th.TEXT_MUTED}; font-size:11px; border:none;")
+            n.setAlignment(th.ARIGHT)
+            col.addWidget(n)
+        h.addLayout(col, 1)          # العنوان يمين
+        lay.addWidget(head)
+
+        # ---------- الصفوف ----------
+        body = QWidget()
+        b_lay = QVBoxLayout(body)
+        b_lay.setContentsMargins(18, 8, 18, 12)
+        b_lay.setSpacing(0)
+        for i, which in enumerate(keys):
+            if i:
+                sep = QFrame()
+                sep.setFrameShape(QFrame.Shape.HLine)
+                sep.setFixedHeight(1)
+                sep.setStyleSheet(f"background:{th.BORDER_SOFT}; border:none;")
+                b_lay.addWidget(sep)
+            b_lay.addWidget(self._build_key_row(which))
+        lay.addWidget(body)
+        return card
+
+    def _build_key_row(self, which):
+        """
+        سطر مضغوط لمزوّد:
+          سطر 1: الاسم (يمين) ... [خانة المفتاح][لصق][حفظ][اختبار][حذف]
+          سطر 2: حالة المفتاح + رابط صفحة المفتاح + ملاحظة المزوّد
+        """
+        spec = self.KEY_CARDS[which]
+        box = QWidget()
+        v = QVBoxLayout(box)
+        v.setContentsMargins(0, 4, 0, 4)
+        v.setSpacing(2)
+
+        line1 = QHBoxLayout()
+        line1.setContentsMargins(0, 0, 0, 0)
+        line1.setSpacing(6)
         title = QLabel(spec['title'])
-        title.setStyleSheet(f"color:{th.TEXT_PRIMARY}; font-size:14px; font-weight:700; border:none;")
+        title.setStyleSheet(f"color:{th.TEXT_PRIMARY}; font-size:13px; font-weight:700; border:none;")
         title.setAlignment(th.ARIGHT)
-        sub = QLabel(spec['sub'])
-        sub.setWordWrap(True)
-        sub.setStyleSheet(f"color:{th.TEXT_MUTED}; font-size:11px; border:none;")
-        sub.setAlignment(th.ARIGHT)
-        lay.addWidget(title)
-        lay.addWidget(sub)
-        status = QLabel("")
-        status.setWordWrap(True)
-        status.setAlignment(th.ARIGHT)
-        lay.addSpacing(6)
-        lay.addWidget(status)
-        row = QHBoxLayout()
+        title.setToolTip(spec['sub'])
+        line1.addWidget(title)
         entry = _line_edit("الصق المفتاح هنا", ltr=True)
         entry.setEchoMode(QLineEdit.EchoMode.Password)
         paste_btn = SecondaryButton("📋 لصق")
@@ -308,37 +350,43 @@ class SettingsPage(QWidget):
         save_btn.clicked.connect(lambda: self._save_key(which))
         test_btn.clicked.connect(lambda: self._test_key(which))
         del_btn.clicked.connect(lambda: self._delete_key(which))
-        for w in (del_btn, test_btn, save_btn, paste_btn):
-            row.addWidget(w)
-        row.addWidget(entry, 1)
-        lay.addLayout(row)
+        line1.addWidget(entry, 1)
+        for w in (paste_btn, save_btn, test_btn, del_btn):
+            line1.addWidget(w)
+        v.addLayout(line1)
+
+        line2 = QHBoxLayout()
+        line2.setContentsMargins(0, 0, 0, 0)
+        line2.setSpacing(8)
+        status = QLabel("")
+        status.setWordWrap(True)
+        status.setAlignment(th.ARIGHT)
+        line2.addWidget(status)
+        # الملاحظة بالوسط (وإن ما فيه ملاحظة: فراغ ي pushing الرابط لآخر يسار)
+        if spec.get('note'):
+            note = QLabel(spec['note'])
+            note.setWordWrap(True)
+            note.setStyleSheet(f"color:{th.TEXT_MUTED}; font-size:10px; border:none;")
+            note.setAlignment(th.ARIGHT)
+            line2.addWidget(note, 1)
+        else:
+            line2.addStretch(1)
+        # الرابط **آخر يسار** في كل الصفوف (زي Gemini)
         link = QPushButton("🔗 " + spec['link'])
         link.setCursor(Qt.CursorShape.PointingHandCursor)
         link.setFlat(True)
         link.setToolTip(spec['url'])
-        link.setStyleSheet(f"QPushButton {{ color:{th.NAVY}; font-size:12px; font-weight:700; border:none;"
-                           " text-decoration:underline; text-align:right; padding:2px 0; }}")
+        link.setStyleSheet(f"QPushButton {{ color:{th.NAVY}; font-size:11px; font-weight:700; border:none;"
+                           " text-decoration:underline; text-align:left; padding:0; }")
         link.clicked.connect(lambda: self._open_url(spec['url']))
-        lay.addSpacing(4)
-        lay.addWidget(link, 0, Qt.AlignmentFlag.AlignRight)
-        if spec['note']:
-            note = QLabel(spec['note'])
-            note.setWordWrap(True)
-            note.setStyleSheet(f"color:{th.TEXT_MUTED}; font-size:11px; border:none;")
-            note.setAlignment(th.ARIGHT)
-            lay.addWidget(note)
+        line2.addWidget(link, 0)
+        v.addLayout(line2)
+
         if not hasattr(self, '_key_widgets'):
             self._key_widgets = {}
         self._key_widgets[which] = {'entry': entry, 'status': status, 'link': link}
-        if which == 'gemini':                         # «مفتاحك يتيح: <النموذج>» — ما اكتُشف فعلاً للمفتاح (يُعاد بـ«اختبار»)
-            caps = QLabel("")
-            caps.setWordWrap(True)
-            caps.setAlignment(th.ARIGHT)
-            caps.setStyleSheet(f"color:{th.NAVY}; font-size:12px; font-weight:700; border:none;")
-            lay.insertWidget(lay.indexOf(status) + 1, caps)
-            self._key_widgets[which]['caps'] = caps
         self._refresh_key_status(which)
-        return card
+        return box
 
     def _key_io(self, which):
         """(قراءة، حفظ) المفتاح الشخصي لكل مزوّد."""
@@ -369,23 +417,6 @@ class SettingsPage(QWidget):
         lbl = self._key_widgets[which]['status']
         lbl.setText(text)
         lbl.setStyleSheet(f"color:{color}; font-size:11px; font-weight:700; border:none;")
-        caps = self._key_widgets[which].get('caps')
-        if caps is not None:
-            caps.setText(self.caps_text())
-
-    @staticmethod
-    def caps_text():
-        """سطر بطاقة Gemini: «مفتاحك يتيح: <اسم النموذج>» من الاكتشاف المحفوظ للمفتاح (بلا طلب)."""
-        import gemini_config as gc
-        try:
-            if not gc.load_api_key():
-                return ''
-            cap = gc.cached_key_model()
-        except Exception:
-            return ''
-        if not cap:
-            return "مفتاحك يتيح: لم يُكتشف بعد — اضغط «اختبار»"
-        return f"مفتاحك يتيح: {cap['model']}" + ('' if cap.get('pro') else '  (Pro غير متاح لهذا المفتاح)')
 
     def _paste_key(self, which):
         clip = QApplication.clipboard().text().strip()
@@ -692,22 +723,42 @@ class SettingsPage(QWidget):
         existing_specialty = load_specialty()
         existing_loc = load_location()
 
-        def field(label_text, placeholder, value=''):
-            lay.addWidget(_field_label(label_text))
+        # كل خانة **سطر واحد**: التسمية يمين والحقل يسار (نفس ترتيب صفحة
+        # «إضافة قضية») — الحقول تحت بعض وما فيه عمودين ضيقين (10/11/2026 —
+        # طلب العنزي: رجّعها تحت بعض).
+        def field(attr, label_text, placeholder, value=''):
+            row = QWidget()
+            r_lay = QHBoxLayout(row)
+            r_lay.setContentsMargins(0, 0, 0, 0)
+            r_lay.setSpacing(10)
+            lbl = QLabel(label_text)
+            lbl.setFixedWidth(170)
+            lbl.setWordWrap(True)
+            lbl.setAlignment(th.ARIGHT)
+            lbl.setStyleSheet(f"color:{th.TEXT_SECONDARY}; font-size:11px; border:none;")
+            r_lay.addWidget(lbl)
             e = _line_edit(placeholder, value)
-            lay.addWidget(e)
-            lay.addSpacing(8)
-            return e
+            r_lay.addWidget(e, 1)
+            setattr(self, attr, e)
+            return row
 
-        self.specialty_entry = field("الشق التخصصي", "مثال: حاسب آلي", existing_specialty)
-        self.maqar_entry = field("المقر", "مثال: مبنى الإدارة العامة للخبراء - الرقعي", existing_loc.get('maqar', ''))
-        self.dor_entry = field("الدور", "مثال: الثاني", existing_loc.get('dor', ''))
-        self.maktab_entry = field("المكتب", "مثال: 12", existing_loc.get('maktab', ''))
-        self.janah_entry = field("الجناح", "مثال: ب", existing_loc.get('janah', ''))
         from expert_settings import load_report_header
         hdr = load_report_header()
-        self.gov_entry = field("المحافظة (ترويسة التقرير)", "تُعبَّأ من نظام الخبراء عند إصدار أول تقرير", hdr['governorate'])
-        self.dept_entry = field("القسم (ترويسة التقرير)", "مثال: قضايا الكهرباء والكمبيوتر", hdr['department'])
+        items = [
+            ('specialty_entry', 'الشق التخصصي', 'مثال: حاسب آلي', existing_specialty),
+            ('maqar_entry', 'المقر', 'مثال: مبنى الإدارة العامة للخبراء - الرقعي', existing_loc.get('maqar', '')),
+            ('dor_entry', 'الدور', 'مثال: الثاني', existing_loc.get('dor', '')),
+            ('maktab_entry', 'المكتب', 'مثال: 12', existing_loc.get('maktab', '')),
+            ('janah_entry', 'الجناح', 'مثال: ب', existing_loc.get('janah', '')),
+            ('gov_entry', 'المحافظة (ترويسة التقرير)',
+             'تلقائي من النظام — غيّرها إذا كنت من قسم آخر', hdr['governorate']),
+            ('dept_entry', 'القسم (ترويسة التقرير)',
+             'تلقائي من النظام — مثال: قسم قضايا الكهرباء والكمبيوتر العاصمه', hdr['department']),
+        ]
+        for attr, label_text, placeholder, value in items:
+            lay.addWidget(field(attr, label_text, placeholder, value))
+            lay.addSpacing(6)
+        lay.addSpacing(2)
 
         self.profile_status_lbl = QLabel("")
         self.profile_status_lbl.setStyleSheet(f"color:{th.TEXT_MUTED}; font-size:11px; border:none;")
@@ -733,12 +784,64 @@ class SettingsPage(QWidget):
         self.profile_status_lbl.setText("⏳ جاري جلب بياناتك من الموقع...")
 
         def work():
+            found = {}
             try:
-                found, _raw = get_expert_profile_fields(self.cookies)
+                f, _raw = get_expert_profile_fields(self.cookies)
+                found.update(f or {})
             except Exception:
-                found = None
+                pass
+            # المحافظة/القسم: من سجل الحركة لآخر قضية (نفس مصدر المحضر)
+            try:
+                found.update(self._fetch_section_fields())
+            except Exception:
+                pass
             self._profile_ready.emit(found)
         threading.Thread(target=work, daemon=True).start()
+
+    def _recent_caso_nos(self, limit=4):
+        """أرقام آخر قضايا هذا الخبير (من القاعدة المحلية) — لمصدر المحافظة/القسم."""
+        import case_db
+        try:
+            casos = set(case_db.get_active_cases(self.current_user))
+        except Exception:
+            casos = set()
+        if not casos:
+            try:
+                casos = set(case_db.get_all_caso_nos())
+            except Exception:
+                casos = set()
+        rows = []
+        for c in casos:
+            try:
+                d = case_db.get_case(c) or {}
+            except Exception:
+                d = {}
+            exp = (d.get('expert_name') or '').strip()
+            if exp and self.current_user and exp != self.current_user:
+                continue
+            stamp = (d.get('updated_at') or d.get('received_date') or '')
+            rows.append((stamp, c))
+        rows.sort(reverse=True)
+        return [c for _, c in rows[:limit]]
+
+    def _fetch_section_fields(self):
+        """
+        المحافظة/القسم من **سجل الحركة** لآخر قضية لهذا الخبير: خانة القسم
+        بعد «توزيع للخبراء» (نفس المصدر اللي يقرأه المحضر) — مثل
+        «قسم قضايا الكهرباء والكمبيوتر العاصمه» ⟵ المحافظة «العاصمة».
+        تُملأ الحقول الفاضية فقط، فما تكتب فوق ما ضبطه الخبير.
+        """
+        from api import parse_case_info
+        for caso in self._recent_caso_nos(2):
+            try:
+                info = parse_case_info(caso, self.cookies, self.current_user)
+            except Exception:
+                continue
+            gov = (info.get('governorate') or '').strip()
+            dep = (info.get('department') or '').strip()
+            if gov or dep:
+                return {'governorate': gov, 'department': dep}
+        return {}
 
     def _apply_profile(self, found):
         """يعبّي الحقول الفاضية فقط (لا يكتب فوق ما أدخله الخبير يدويًا) ويحفظ تلقائيًا."""
@@ -747,7 +850,8 @@ class SettingsPage(QWidget):
             return
         fields = [('specialty', self.specialty_entry), ('maqar', self.maqar_entry),
                   ('dor', self.dor_entry), ('maktab', self.maktab_entry),
-                  ('janah', self.janah_entry)]
+                  ('janah', self.janah_entry),
+                  ('governorate', self.gov_entry), ('department', self.dept_entry)]
         filled = 0
         for key, entry in fields:
             if found.get(key) and not entry.text().strip():
@@ -887,8 +991,9 @@ class SettingsPage(QWidget):
         title = QLabel("🔄 إعدادات التحديث")
         title.setStyleSheet(f"color:{th.TEXT_PRIMARY}; font-size:14px; font-weight:700; border:none;")
         title.setAlignment(th.ARIGHT)
-        sub = QLabel("مسار مجلد التحديثات على الشبكة (يوضع فيه ملف EXE الجديد). عند الحفظ يُنشر المسار"
-                     " مع رقم النسخة الحالية لكل الأجهزة، وتُحدَّث تلقائيًا عند التشغيل بشبكة الدوام")
+        sub = QLabel("مصدران للتحديث: الأول مجلد على شبكة الدوام (يُوضع فيه ملف EXE الجديد)، "
+                     "وبعده رابط أونلاين يُجرّب لو الشبكة الداخلية مو متاحة. "
+                     "عند الحفظ يُنشر المصدران مع رقم النسخة لكل الأجهزة.")
         sub.setWordWrap(True)
         sub.setStyleSheet(f"color:{th.TEXT_MUTED}; font-size:10px; border:none;")
         sub.setAlignment(th.ARIGHT)
@@ -914,6 +1019,17 @@ class SettingsPage(QWidget):
         row.addWidget(self.update_folder_entry, 1)
         lay.addSpacing(4)
         lay.addLayout(row)
+
+        # المصدر الثاني: رابط أونلاين (يُجرّب بعد الداخلي)
+        import updater as _updater
+        row2 = QHBoxLayout()
+        self.update_online_entry = _line_edit(
+            _updater.GITHUB_RELEASES_PAGE,
+            load_update_online_url() or _updater.GITHUB_RELEASES_PAGE, ltr=True)
+        row2.addWidget(_field_label("رابط أونلاين:"))
+        row2.addWidget(self.update_online_entry, 1)
+        lay.addSpacing(4)
+        lay.addLayout(row2)
         return card
 
     def _save_update_folder(self):
@@ -928,14 +1044,17 @@ class SettingsPage(QWidget):
         if not re.fullmatch(r"\d+\.\d+\.\d+", version):
             QMessageBox.warning(self, "تنبيه", "صيغة رقم النسخة غير صحيحة — استخدم الشكل 1.0.2")
             return
+        online = self.update_online_entry.text().strip() if hasattr(self, 'update_online_entry') else ''
         save_update_folder(path)
         save_update_version(version)
+        if online:
+            save_update_online_url(online)
         import updater
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        ok, err = updater.publish_app_version(path, version)
+        ok, err = updater.publish_app_version(path, version, online_url=online)
         QApplication.restoreOverrideCursor()
         if ok:
-            QMessageBox.information(self, "✅ تم", "تم حفظ المسار ونشر رقم النسخة للسحابة")
+            QMessageBox.information(self, "✅ تم", "تم حفظ المصدرين ونشر رقم النسخة للسحابة")
         else:
             QMessageBox.critical(self, "❌ فشل النشر",
                 f"تم حفظ المسار محليًا لكن تعذر رفعه للسحابة:\n\n{th.ltr(err)}")

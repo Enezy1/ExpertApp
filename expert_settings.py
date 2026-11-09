@@ -97,6 +97,18 @@ def load_update_folder():
     return _load_all().get('update_folder', '')
 
 
+def save_update_online_url(url):
+    """يحفظ رابط التحديث الأونلاين (يُجرّب بعد المصدر الداخلي — انظر updater.py)"""
+    data = _load_all()
+    data['update_online_url'] = (url or '').strip()
+    _save_all(data)
+
+
+def load_update_online_url():
+    """يرجع رابط التحديث الأونلاين المحفوظ، أو نص فاضي لو ما فيه بعد"""
+    return _load_all().get('update_online_url', '')
+
+
 def save_update_version(version):
     """يحفظ رقم النسخة المُدخَل يدويًا للنشر (يستخدمه الأدمن فقط)"""
     data = _load_all()
@@ -197,3 +209,18 @@ def save_report_header(governorate='', department=''):
 def load_report_header():
     h = _load_all().get('report_header', {}) or {}
     return {'governorate': h.get('governorate', ''), 'department': h.get('department', '')}
+
+
+def resolve_report_header(info=None):
+    """
+    (المحافظة، القسم) للطباعة — بأولوية: **نظام الخبراء** (سجل الحركة:
+    خانة القسم بعد «توزيع للخبراء») ← **إعدادات الخبير**.
+
+    يعني: تجي تلقائية لِمن يناسبه قسمه، وإذا واحد من قسم ثاني يبي يطبع
+    المحضر باسم محافظته، يكتبها بالإعدادات وتنعكس هنا (2026-11-09).
+    """
+    info = info or {}
+    hdr = load_report_header()
+    gov = (info.get('governorate') or '').strip() or (hdr.get('governorate') or '').strip()
+    dep = (info.get('department') or '').strip() or (hdr.get('department') or '').strip()
+    return gov, dep

@@ -164,5 +164,101 @@ class ScanErrorTests(unittest.TestCase):
             self.assertEqual(cs.run_full_scan({}, ME), [])
 
 
+class SearchPageSnapshotTests(unittest.TestCase):
+    """
+    «بحث قضية»: فصل «وجود القضية» عن «مين ماسكها».
+
+    العَرَض اللي كان: قضية موجودة بالنظام بس ما استلمها الخبير بعد ⇒
+    لقطة البحث ترجع «غير موجودة» ⇒ الصفحة تقول «ما فيه أي توزيع مسجَّل
+    … تأكد من الرقم» (وتُقرأ كـ«القضية غير موجودة»).
+    """
+
+    @staticmethod
+    def _html(rows):
+        """صفوف سجل حركة كـHTML — كل صف <tr> بخاناته (الفارغة '&nbsp')."""
+        body = ''.join('<tr>' + ''.join('<td>%s</td>' % c for c in cells) + '</tr>'
+                       for cells in rows)
+        return '<table>' + body + '</table>'
+
+    def _snapshot(self, html, exists=True, autocase='262208250', title='منال ماجد محمد'):
+        basic = {'exists': exists, 'autocase_no': autocase if exists else '',
+                 'title': title if exists else '', 'case_no': 'A2264164' if exists else ''}
+        with mock.patch.object(cs, '_flow_html', return_value=html), \
+             mock.patch.object(cs, 'get_case_basic_info', return_value=basic):
+            return cs.get_case_snapshot({}, 'A2264164')
+
+    def test_case_not_received_is_not_reported_as_missing(self):
+        """القضية موجودة بس ما استلمها الخبير ← «مو مستلمة» مو «غير موجودة»"""
+        html = self._html([
+            ['توزيع للاقسام', 'قسم قضايا الكهرباء', 'نايفه السعيدي',
+             'قسم قضايا الكهرباء', 'نايفه السعيدي', '4773927', '05/11/2026'],
+        ])
+        snap = self._snapshot(html, exists=True)
+        self.assertTrue(snap['found'])
+        self.assertEqual(snap['state'], 'not_received')
+        self.assertEqual(snap['current_holders'], [])
+        self.assertEqual(snap['autocase_no'], '262208250')
+
+    def test_distribution_without_recipient_cell_is_pending_not_missing(self):
+        """
+        خانة «إلى موظف» فاضية (القضية بالمحالة، ما استلمها أحد):
+        _parse_flow القديم يحذف الخانة ← تتزحزح مواضع البلوك ← الصف
+        ما ينقرأ ⇒ كانت ترجع «غير موجودة». الآن: «مو مستلمة».
+        """
+        html = self._html([
+            ['توزيع للخبراء', 'قسم قضايا الكهرباء', 'نايفه السعيدي',
+             'قسم قضايا الكهرباء', '&nbsp', '4773927', '05/11/2026'],
+        ])
+        snap = self._snapshot(html, exists=True)
+        self.assertEqual(snap['state'], 'not_received')
+        self.assertTrue(snap['pending_distribution'])
+        self.assertEqual(snap['last_referral_date'], datetime(2026, 11, 5))
+
+    def test_complete_distribution_shows_the_holder(self):
+        """التوزيع الكامل — السلوك القديم ما يتغيّر"""
+        html = self._html([
+            ['توزيع للخبراء', 'قسم قضايا الكهرباء', 'نايفه السعيدي',
+             'قسم قضايا الكهرباء', 'محمد عبدالله فرحان العنزي', '4773927', '05/11/2026'],
+        ])
+        snap = self._snapshot(html, exists=True)
+        self.assertEqual(snap['state'], 'ok')
+        self.assertTrue(snap['found'])
+        self.assertEqual(snap['current_holders'], ['محمد عبدالله فرحان العنزي'])
+        self.assertEqual(snap['last_referral_date'], datetime(2026, 11, 5))
+        self.assertFalse(snap['completed'])
+
+    def test_wrong_number_is_reported_as_missing(self):
+        """رقم غلط ⇐ ما فيه قضية بالنظام (رسالة واضحة — مو «تأكد من الرقم»)"""
+        html = self._html([
+            ['توزيع للاقسام', 'قسم', 'نايفه السعيدي', 'قسم', 'نايفه السعيدي',
+             '4773927', '05/11/2026'],
+        ])
+        snap = self._snapshot(html, exists=False)
+        self.assertFalse(snap['found'])
+        self.assertEqual(snap['state'], 'not_found')
+
+    def test_case_without_any_distribution_is_not_received(self):
+        """قضية موجودة بس ما وزّعت بعد على خبير ← «ما وزّعت»"""
+        snap = self._snapshot('<table></table>', exists=True)
+        self.assertEqual(snap['state'], 'not_received')
+        self.assertFalse(snap['pending_distribution'])
+
+    def test_old_parser_drops_the_empty_cell_but_new_one_keeps_positions(self):
+        """السبب الجذري: القديم يحذف الفاضي فيتزحزح الصف، الجديد يحافظ"""
+        html = self._html([
+            ['توزيع للخبراء', 'قسم', 'نايفه', 'قسم', '&nbsp', '4773927', '05/11/2026'],
+        ])
+        old_cells = cs._parse_flow_html(html)
+        self.assertNotIn('&nbsp', old_cells)          # القديم: الحذف
+        self.assertEqual(len(old_cells), 6)            # ⇒ 6 خانات مو 7
+        rows = cs._flow_rows(html)                    # الجديد: المواضع محفوظة
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(len(rows[0]), 7)
+        dists = cs._distributions_from_rows(rows)
+        self.assertEqual(len(dists), 1)
+        self.assertEqual(dists[0]['date'], datetime(2026, 11, 5))
+        self.assertEqual(dists[0]['name'], '')        # المستلم مو محدد
+
+
 if __name__ == '__main__':
     unittest.main()
