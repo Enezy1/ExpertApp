@@ -202,7 +202,8 @@ def get_case(caso_no):
     conn.close()
     if not row:
         return None
-    data = dict(row)
+    # أعمدة أُضيفت بـALTER بعد إنشاء الصف ترجع NULL=None وتكسر القارئات (.startswith…) — نوحّدها ''
+    data = {k: ('' if v is None else v) for k, v in dict(row).items()}
     try:
         data['plaintiffs'] = json.loads(data['plaintiffs'] or '[]')
     except Exception:

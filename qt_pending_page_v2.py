@@ -32,6 +32,16 @@ from pending_cases import (
 #  أدوات عرض صغيرة (بلا منطق أعمال)
 # ======================================================================
 
+def _summary_state(case):
+    """حالة سطر الملخص بدون ما تسقط البطاقة: قضايا قديمة بالقاعدة المحلية فيها
+    case_summary = NULL (أُضيف العمود بعد إنشائها) فـclaim_summary_initial يرمي
+    AttributeError ← البطاقة ما تنبني ← الصفحة تطلع فاضية بينما الأرقام تظهر."""
+    try:
+        return claim_summary_initial(case)
+    except Exception:
+        return ('load', None) if (case.get('autocase_no') or '') else ('skip', None)
+
+
 def _disp_date(date_str):
     """عرض فقط: YYYY-MM-DD أو YYYY/MM/DD → DD/MM/YYYY، ويرجع النص كما هو لو تعذّر"""
     for fmt in ('%Y-%m-%d', '%Y/%m/%d'):
@@ -500,7 +510,7 @@ class PendingCaseCard(Card):
 
         # سطر ملخص الدعوى — نفس سطر صفحة القضايا المحالة (ستايل ثانوي، يُحمَّل بالخلفية)
         self._summary_lbl = None
-        state, text = claim_summary_initial(case)
+        state, text = _summary_state(case)
         if state != 'skip':
             self._summary_lbl = SummaryLine(text)
             root.addWidget(self._summary_lbl)

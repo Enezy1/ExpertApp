@@ -468,7 +468,10 @@ def _download_file(url, name=None, progress=None, timeout=120):
                     done += len(chunk)
                     if progress:
                         try:
-                            progress(done, total)
+                            if progress(done, total) is False:   # المستخدم ألغى
+                                raise InterruptedError('cancelled')
+                        except InterruptedError:
+                            raise
                         except Exception:
                             pass
         return local
@@ -577,11 +580,13 @@ def apply_update(new_exe_path, kind='program'):
     tmp_dir = os.path.dirname(new_exe_path)
 
     if kind == 'installer':
-        # مثبّت: نغلق البرنامج ثم نشغّله (يعرض معالج التثبيت للمستخدم)
+        # مثبّت: تثبيت صامت فوق النسخة الحالية (نفس AppId) ثم إعادة تشغيل البرنامج
         script = (
             '@echo off\r\n'
             'ping -n 3 127.0.0.1 >nul\r\n'
-            f'start "" "{new_exe_path}"\r\n'
+            f'start /wait "" "{new_exe_path}" /VERYSILENT /SUPPRESSMSGBOXES '
+            '/NORESTART /CLOSEAPPLICATIONS\r\n'
+            f'start "" "{current_exe}"\r\n'
             f'rmdir /S /Q "{tmp_dir}" >nul 2>&1\r\n'
             '(goto) 2>nul & del "%~f0"\r\n'
         )

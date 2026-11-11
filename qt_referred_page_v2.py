@@ -229,6 +229,16 @@ def _empty_state(kind, title, sub=''):
     return w
 
 
+def _summary_state(case):
+    """حالة سطر الملخص بدون ما تسقط البطاقة: قضايا قديمة بالقاعدة المحلية فيها
+    case_summary = NULL (أُضيف العمود بعد إنشائها) فـclaim_summary_initial يرمي
+    AttributeError ← البطاقة ما تنبني ← الصفحة تطلع فاضية بينما الأرقام تظهر."""
+    try:
+        return claim_summary_initial(case)
+    except Exception:
+        return ('load', None) if (case.get('autocase_no') or '') else ('skip', None)
+
+
 class ReferredCaseCard(Card):
     """مذكرة واردة: المدعى + الشارات + تاريخ الورود، ثم حقول المحيل، ثم مباشرة/إعادة"""
     # ملخص الدعوى يصل من خيط خلفي — النص الفاضي يعني إخفاء السطر
@@ -284,7 +294,7 @@ class ReferredCaseCard(Card):
         # سطر ملخص الدعوى (ميزة إضافية): بنفس ستايل سطر «رقم الخبرة» الثانوي.
         # الأزرار تُبنى بعده وتبقى فعّالة فوراً بغض النظر عن حالة الملخص.
         self._summary_lbl = None
-        state, text = claim_summary_initial(case)
+        state, text = _summary_state(case)
         if state != 'skip':
             self._summary_lbl = SummaryLine(text)
             root.addWidget(self._summary_lbl)

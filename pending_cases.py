@@ -671,7 +671,7 @@ def build_case_row(scroll, case, cookies, current_user, reserved_info=None):
 def show_case_summary(case):
     """يعرض ملخص القضية المخزّن محلياً فقط، أو رسالة لو ما توفر بعد"""
     try:
-        summary = (case_db.get_case(case['caso_no']) or {}).get('case_summary', '')
+        summary = (case_db.get_case(case['caso_no']) or {}).get('case_summary') or ''
     except Exception:
         summary = ''
     messages = {

@@ -412,7 +412,7 @@ def claim_summary_initial(case):
     """
     caso_no = case['caso_no']
     try:
-        cached = (case_db.get_case(caso_no) or {}).get('case_summary', '')
+        cached = (case_db.get_case(caso_no) or {}).get('case_summary') or ''
     except Exception:
         cached = ''
     if cached in CLAIM_SENTINELS:

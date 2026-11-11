@@ -7,7 +7,7 @@
 from PyQt6.QtCore import Qt, pyqtSignal, QPointF, QPoint, QRect, QTimer, QObject, QEvent
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QStackedWidget,
-    QFrame, QMessageBox
+    QFrame, QMessageBox, QPushButton
 )
 from PyQt6.QtWidgets import QApplication, QToolTip
 from PyQt6.QtGui import QIcon, QCursor, QPainter, QColor, QBrush, QKeySequence, QShortcut
@@ -266,6 +266,14 @@ class Sidebar(QFrame):
         add('settings', 'gear', 'الإعدادات')
         root.addSpacing(10)
 
+        # زر التحديث — مخفي إلا لما يوجد تحديث (يتحكم فيه main.py عبر show_update…)
+        self.update_btn = QPushButton("")
+        self.update_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.update_btn.setMinimumHeight(38)
+        self.update_btn.hide()
+        root.addWidget(self.update_btn)
+        root.addSpacing(8)
+
         sep = QFrame()
         sep.setFixedHeight(1)
         sep.setStyleSheet(f"background:{th.SIDEBAR_DIVIDER}; border:none;")
@@ -294,6 +302,31 @@ class Sidebar(QFrame):
         user_row.addLayout(user_box)
         user_row.addStretch()
         root.addLayout(user_row)
+
+    # ---- زر التحديث (عرض فقط — المنطق في main.py) ----
+    def _style_update_btn(self, bg, enabled=True):
+        self.update_btn.setEnabled(enabled)
+        self.update_btn.setStyleSheet(
+            f"QPushButton {{ background:{bg}; color:white; border:none; border-radius:10px;"
+            f" font-size:{th.FS_LABEL}px; font-weight:{th.W_BOLD}; padding:6px 10px; }}"
+            f"QPushButton:disabled {{ background:{bg}; color:white; }}")
+
+    def show_update(self, new_ver):
+        self.update_btn.setText(f"🔄 تحديث متوفر ({new_ver})")
+        self._style_update_btn(th.EMERALD)
+        self.update_btn.show()
+
+    def set_update_progress(self, percent):
+        self.update_btn.setText(f"⬇️ جاري التحميل… {percent}%" if percent >= 0 else "⬇️ جاري التحميل…")
+        self._style_update_btn(th.SIDEBAR_ITEM_ACTIVE, enabled=False)
+
+    def set_update_ready(self):
+        self.update_btn.setText("✅ جاهز — اضغط لإعادة التشغيل")
+        self._style_update_btn(th.EMERALD)
+
+    def set_update_failed(self, new_ver):
+        self.update_btn.setText(f"⚠️ تعذّر التحميل — أعد المحاولة ({new_ver})")
+        self._style_update_btn("#B3261E")
 
     def set_active(self, key):
         for k, item in self.items.items():
@@ -445,6 +478,7 @@ class FadingStack(QStackedWidget):
 class ExpertAppQt(QMainWindow):
     # عدد القضايا المحالة — يُرسَل من خيط الجلب الخلفي للواجهة
     _referred_count = pyqtSignal(int)
+    _keepalive_state = pyqtSignal(str)      # نتيجة نبضة الإبقاء من الخيط الخلفي
 
     def __init__(self, cookies, current_user):
         super().__init__()
@@ -537,6 +571,29 @@ class ExpertAppQt(QMainWindow):
         if cookies:
             self.sidebar.set_connected(current_user)
             self.sessions_page.set_connected(current_user)
+
+        # إبقاء الجلسة حيّة: نبضة كل 10 د، حد أقصى 3 س (تجربة قابلة للإزالة — keepalive.py)
+        self._keepalive_state.connect(self._on_keepalive_state)
+        self._keepalive = None
+        if cookies:
+            try:
+                import keepalive
+                self._keepalive = keepalive.KeepAlive(
+                    cookies, lambda s: self._keepalive_state.emit(s))
+                self._keepalive.start()
+            except Exception:
+                pass
+
+    def _on_keepalive_state(self, state):
+        "على خيط الواجهة: ok ← متصل · lost ← انتهت الجلسة (رسالة مرة وحدة) · error ← نتجاهل"
+        if state == 'ok':
+            self.sidebar.set_status('ok')
+        elif state == 'lost':
+            self.sidebar.set_status('lost')
+            QMessageBox.warning(
+                self, "انقطع الاتصال",
+                "انقطع الاتصال بنظام الخبراء (انتهت الجلسة).\n"
+                "أغلق البرنامج وافتحه من جديد لتسجيل الدخول.")
 
     def _refresh_referred_badge(self):
         """جلب خفيف بالخلفية لعدد القضايا المحالة (عادية + استعانة) — أي فشل يترك الشارة كما هي"""

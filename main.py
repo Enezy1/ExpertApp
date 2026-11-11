@@ -659,20 +659,25 @@ from qt_widgets import PrimaryButton
 
 
 class _UpdateBridge(QObject):
-    "ينقل نتيجة خيط فحص التحديث والتنزيل للخيط الرئيسي (الرسائل لازم تصير هناك)"
-    ready = pyqtSignal(str, object)     # (النسخة الجديدة، قائمة المصادر)
+    "ينقل نتائج خيوط الفحص والتنزيل للخيط الرئيسي (الواجهة لا تُلمس إلا من هناك)"
+    ready = pyqtSignal(str, object)     # (النسخة الجديدة، قائمة المصادر) — فيه تحديث
     progress = pyqtSignal(int, int)     # (المنزَّل، المجموع)
-    finished = pyqtSignal()             # انتهى التنزيل
+    downloaded = pyqtSignal(str, str)   # (مسار الملف، نوعه) — نجح التنزيل ('' = فشل)
 
 
 _update_bridge = None
+_update_state = {'ver': '', 'sources': None, 'path': '', 'kind': '', 'busy': False}
 
 
 def _start_update_check():
+    """فحص مرة وحدة عند الإقلاع (بخيط خلفي). لو فيه تحديث يظهر زر «تحديث متوفر»
+    بالشريط الجانبي فقط — بلا نوافذ تقاطع الشغل."""
     global _update_bridge
     import threading
     _update_bridge = _UpdateBridge()
-    _update_bridge.ready.connect(_prompt_update)
+    _update_bridge.ready.connect(_on_update_available)
+    _update_bridge.progress.connect(_on_update_progress)
+    _update_bridge.downloaded.connect(_on_update_downloaded)
 
     def worker():
         try:
@@ -686,88 +691,74 @@ def _start_update_check():
     threading.Thread(target=worker, daemon=True).start()
 
 
-def _update_sources_text(sources):
-    """وصف المصادر بالترتيب: داخلي (شبكة الدوام) أول، وبعده أونلاين."""
-    internal = [s for s in (sources or []) if s.get('kind') == 'internal']
-    online = [s for s in (sources or []) if s.get('kind') == 'online']
-    parts = []
-    if internal:
-        parts.append("المصدر الأول: مجلد التحديث على شبكة الدوام")
-    if online:
-        parts.append("وبعده: رابط أونلاين" + ("" if internal else " (المصدر الوحيد)"))
-    return "التحديث يبدأ من: " + " ← ".join(parts) if parts else ""
+def _update_sidebar():
+    "شريط النافذة الرئيسية (None لو لسه ما انبنت)"
+    win = getattr(LoginScreenQt, '_main_window_ref', None)
+    return getattr(win, 'sidebar', None) if win else None
 
 
-def _prompt_update(new_ver, sources):
-    """
-    يسأل أولًا، وبعد الموافقة ينزّل النسخة الجديدة (المصدر الداخلي أول،
-    وبعده الأونلاين) ويثبّتها على هذا الجهاز.
-    """
-    parent = getattr(LoginScreenQt, '_main_window_ref', None)
-    ans = QMessageBox.question(
-        parent, "تحديث البرنامج",
-        f"توجد نسخة جديدة ({new_ver}).\n{_update_sources_text(sources)}\n"
-        f"هل تريد التحديث الآن؟",
-        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-    if ans != QMessageBox.StandardButton.Yes:
+def _on_update_available(new_ver, sources, _tries=0):
+    sb = _update_sidebar()
+    if sb is None:
+        # الفحص قد يخلص قبل ما تنبني النافذة الرئيسية — نعيد المحاولة بهدوء
+        if _tries < 40:
+            QTimer.singleShot(500, lambda: _on_update_available(new_ver, sources, _tries + 1))
         return
-    import updater
+    _update_state.update(ver=new_ver, sources=sources, path='', kind='')
+    sb.show_update(new_ver)
+    try:
+        sb.update_btn.clicked.disconnect()
+    except Exception:
+        pass
+    sb.update_btn.clicked.connect(_on_update_button)
+
+
+def _on_update_button():
+    "ضغطة الزر: لو التنزيل جاهز ← نطبّق ونعيد التشغيل؛ وإلا نبدأ التنزيل بالخلفية"
+    if _update_state['busy']:
+        return
+    if _update_state['path']:
+        import updater
+        if not updater.apply_update(_update_state['path'], _update_state['kind']):
+            QMessageBox.information(getattr(LoginScreenQt, '_main_window_ref', None), "التحديث",
+                                    "التحديث التلقائي يعمل من نسخة EXE فقط.")
+        return
     import threading
-    from PyQt6.QtWidgets import QProgressDialog
-
-    dlg = QProgressDialog("جاري تحميل النسخة الجديدة…", "إلغاء", 0, 0, parent)
-    dlg.setWindowTitle("تحديث البرنامج")
-    dlg.setWindowModality(Qt.WindowModality.WindowModal)
-    dlg.setMinimumDuration(0)
-    dlg.setAutoClose(False)
-    dlg.setAutoReset(False)
-    dlg.show()
-
-    result = {'path': '', 'kind': '', 'src': None}
-
-    def on_progress(done, total):
-        if total:
-            dlg.setMaximum(total)
-            dlg.setValue(done)
-            dlg.setLabelText(f"جاري تحميل النسخة الجديدة… {done * 100 // total}%")
-        else:
-            dlg.setLabelText(f"جاري تحميل النسخة الجديدة… {done // (1024 * 1024)} م.ب")
+    import updater
+    sb = _update_sidebar()
+    _update_state['busy'] = True
+    if sb:
+        sb.set_update_progress(-1)
 
     def worker():
+        path = kind = ''
         try:
-            # التقدم يمرّ بالإشارة (الخيط ما يمسّ الواجهة مباشرة)
-            path, kind, src = updater.download_update(
-                sources, new_ver,
+            # داخلي أول، وإذا ما قدر يتصل داخلياً ينزّل من الخارج (download_update)
+            path, kind, _src = updater.download_update(
+                _update_state['sources'], _update_state['ver'],
                 lambda done, total: _update_bridge.progress.emit(done, total))
-            result['path'], result['kind'], result['src'] = path, kind, src
         except Exception:
             pass
-        finally:
-            try:
-                _update_bridge.finished.emit()
-            except Exception:
-                pass
+        _update_bridge.downloaded.emit(path or '', kind or '')
 
-    _update_bridge.progress.connect(on_progress)
-    _update_bridge.finished.connect(dlg.close)
     threading.Thread(target=worker, daemon=True).start()
-    dlg.exec()          # يحجب هنا حتى يخلص التنزيل (أو يلغي المستخدم)
 
-    if dlg.wasCanceled():
-        return
-    if not result['path']:
-        QMessageBox.warning(parent, "تعذر التحديث",
-                            "ما قدرت أوصل لنسخة التحديث.\n"
-                            "تأكد من الاتصال بشبكة الدوام، أو من الرابط الأونلاين، وحاول مرة ثانية.")
-        return
-    kind = result['kind']
-    if kind == 'installer':
-        QMessageBox.information(
-            parent, "تحديث البرنامج",
-            "المصدر المتاح هو ملف تثبيت (مو نسخة البرنامج).\n"
-            "سيُفتح المثبّت الآن — أكمل خطوات التثبيت، وبعدها شغّل البرنامج من جديد.")
-    if not updater.apply_update(result['path'], kind):
-        QMessageBox.information(parent, "التحديث", "التحديث التلقائي يعمل من نسخة EXE فقط.")
+
+def _on_update_progress(done, total):
+    sb = _update_sidebar()
+    if sb:
+        sb.set_update_progress(done * 100 // total if total else -1)
+
+
+def _on_update_downloaded(path, kind):
+    _update_state['busy'] = False
+    sb = _update_sidebar()
+    if path:
+        _update_state['path'], _update_state['kind'] = path, kind
+        if sb:
+            sb.set_update_ready()
+    elif sb:
+        sb.set_update_failed(_update_state['ver'])
 
 
 class LoginScreenQt(QWidget):
