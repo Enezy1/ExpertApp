@@ -331,8 +331,34 @@ def _parse_day(date_str):
 
 def _session_kind(sdata):
     """عرض فقط: نوع الجلسة من لونها بنظام الخبراء (SESSION_COLORS) — لون غير معروف = بدون شارة"""
+    # «فتح محضر» و«جلسة محكمة» نفس اللون بالنظام — النوع الفعلي من سجل الحركة (_kind)
+    if sdata.get('_kind') == 'court':
+        return 'جلسة محكمة'
     color = (sdata.get('backgroundColor') or '').strip().lower()
     return {k.lower(): v for k, v in SESSION_COLORS.items()}.get(color, '')
+
+
+def _stamp_ambiguous_kinds(sessions, cookies):
+    """يختم `_kind` على الجلسات اللي لونها يلخبط (فتح محضر/محكمة) — طلب سجل حركة واحد لكل قضية (كاش 30ث)."""
+    try:
+        from config import IGNORED_SESSION_COLORS
+        from api import get_case_session_kinds
+        amb = {c.lower() for c in IGNORED_SESSION_COLORS}
+        cache = {}
+        for s in sessions:
+            if (s.get('backgroundColor') or '').strip().lower() not in amb:
+                continue
+            caso = s.get('description') or ''
+            if not caso:
+                continue
+            if caso not in cache:
+                cache[caso] = get_case_session_kinds(caso, cookies)
+            start = s.get('start') or ''
+            k = cache[caso].get((start[:10], start[11:16]), '')
+            if k:
+                s['_kind'] = k
+    except Exception:
+        pass
 
 
 def _pill(text, bg, fg):
@@ -1618,6 +1644,7 @@ class SessionsPage(QWidget):
             new_s = sorted([s for s in all_s if sf <= _norm_session_date(s) <= ef],
                            key=lambda x: x.get('start', ''))
             self._prefetch_titles(new_s)
+            _stamp_ambiguous_kinds(new_s, cookies)
             data = self._dedupe_same_day(new_s)
         except Exception as e:
             self._emit_from_worker(self._sessions_failed,
