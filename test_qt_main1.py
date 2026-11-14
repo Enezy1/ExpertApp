@@ -295,9 +295,19 @@ class PreviewMergedTests(unittest.TestCase):
             self.page._on_preview_merged_clicked()
         self.assertEqual(warn.call_count, 1)
 
-    def test_print_dir_is_judgments_folder(self):
-        d = self.page._print_dir()
-        self.assertTrue(d.endswith('judgments'), d)
+    def test_print_dir_is_inside_case_folder(self):
+        """ملفات حكم الإحالة تنحفظ **داخل مجلد القضية** في «تقارير الخبراء»
+        (مو على سطح المكتب) — قرار العنزي: كل شي في فولدر واحد."""
+        import tempfile
+        import case_workspace
+        tmp = tempfile.mkdtemp(prefix='main1_print_dir_')
+        self.page.extracted = {'caso_no': 'A2264164'}
+        with mock.patch.object(case_workspace, 'ensure_workspace',
+                               return_value=(tmp, {})):
+            d = self.page._print_dir()
+        self.assertTrue(d.startswith(tmp), d)
+        self.assertTrue(d.endswith('مستندات_النظام'), d)
+        self.assertNotIn('Desktop', d)
         self.assertTrue(os.path.isdir(d))
 
 

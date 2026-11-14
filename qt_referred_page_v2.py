@@ -3,6 +3,7 @@
 # منطق الأعمال (الجلب، التأكيد، submit_action) منسوخ حرفيًا من الأصل؛ الذي تغيّر
 # طبقة العرض: كل إحالة مذكرة واردة ببيانات منظّمة (من قسم / من موظف / ملاحظات)،
 # فصل الإحالات المباشرة عن الاستعانات، وأيقونات مرسومة بدل الرموز.
+import os
 import threading
 from datetime import datetime
 
@@ -23,6 +24,37 @@ from referred_cases import (
     ACTION_MUBASHARA, ACTION_RETURN, ACTION_RETURN_SECONDMENT,
     claim_summary_initial,
 )
+
+
+# ======================================================================
+#  الملف الآلي — حكم الإحالة + صحيفة الدعوى
+# ======================================================================
+
+def fetch_auto_file(caso_no, autocase_no, cookies, user_id='309'):
+    """يسحب أهم مستندات القضية من الملف الآلي ويحفظها **داخل مجلد القضية**
+    داخل «تقارير الخبراء» (مو على سطح المكتب) — كما طلب العنزي: كل شيء في فولدر واحد.
+
+    يرجع {'ok', 'message', 'open' (مسار الملف المفتوح), 'folder' (المجلد)}
+    """
+    import case_workspace
+    import case_folder
+    from documents import get_case_documents_bundle
+
+    base, _data = case_workspace.ensure_workspace({'caso_no': caso_no})
+    out_dir = os.path.join(base, case_folder.SYSDOCS)
+    os.makedirs(out_dir, exist_ok=True)
+
+    bundle = get_case_documents_bundle(cookies, autocase_no, user_id, out_dir)
+    labels = {'judgment': 'حكم الإحالة', 'claim': 'صحيفة الدعوى', 'report': 'تقرير الخبير'}
+    found = [labels[k] for k, v in bundle.items() if v]
+    if not found:
+        return {'ok': False, 'folder': out_dir,
+                'message': "ما فيه مستندات متاحة بالملف الآلي لهذه القضية حالياً."}
+
+    # نفتح حكم الإحالة (وإلا صحيفة الدعوى) — أهمّهم للقراءة
+    open_path = bundle.get('judgment') or bundle.get('claim') or ''
+    return {'ok': True, 'open': open_path, 'folder': out_dir,
+            'message': 'تم سحب: %s' % '، '.join(found)}
 
 
 # ======================================================================
@@ -243,6 +275,8 @@ class ReferredCaseCard(Card):
     """مذكرة واردة: المدعى + الشارات + تاريخ الورود، ثم حقول المحيل، ثم مباشرة/إعادة"""
     # ملخص الدعوى يصل من خيط خلفي — النص الفاضي يعني إخفاء السطر
     _summary_ready = pyqtSignal(str)
+    # نتيجة «الملف الآلي» (سحب حكم الإحالة + صحيفة الدعوى)
+    _auto_ready = pyqtSignal(dict)
 
     def __init__(self, case, cookies, on_done=None, parent=None):
         super().__init__(parent=parent)
@@ -320,10 +354,69 @@ class ReferredCaseCard(Card):
         """)
         return_btn.clicked.connect(lambda: self._confirm_and_submit(return_action, return_label))
 
+        # «الملف الآلي» — يفتح حكم الإحالة وصحيفة الدعوى قبل الاستلام
+        self.auto_btn = SecondaryButton("الملف الآلي")
+        self.auto_btn.setIcon(ic.icon('folder', th.TEXT_SECONDARY))
+        self.auto_btn.setAccessibleName("الملف الآلي — حكم الإحالة وصحيفة الدعوى")
+        self.auto_btn.clicked.connect(self._open_auto_file)
+        self._auto_ready.connect(self._auto_done)
+
         bottom.addWidget(accept_btn)
         bottom.addWidget(return_btn)
+        bottom.addWidget(self.auto_btn)
         bottom.addStretch()
         root.addLayout(bottom)
+
+    # ---- الملف الآلي: حكم الإحالة + صحيفة الدعوى (قبل الاستلام) ----
+    def _open_auto_file(self):
+        """يسحب الملف الآلي للقضية ويعرضه.
+
+        السبب: الخبير يقرأ حكم الإحالة وصحيفة الدعوى قبل ما يستلم القضية —
+        يعرف إن كان أحد يعرف أحداً قبل ما يستلم.
+        الملفات تنحفظ داخل مجلد القضية داخل «تقارير الخبراء» (مو على سطح المكتب).
+        """
+        autocase = (self.case.get('autocase_no') or '').strip()
+        if not autocase:
+            QMessageBox.information(
+                self.window(), "غير متوفر",
+                "ما فيه رقم آلي لهذه القضية — تعذّر فتح الملف الآلي.")
+            return
+        self.auto_btn.setEnabled(False)
+        self.auto_btn.setText("جاري التحميل…")
+        cookies = self.cookies
+        caso_no = self.case.get('caso_no') or ''
+
+        def work():
+            try:
+                result = fetch_auto_file(caso_no, autocase, cookies)
+            except Exception as e:
+                result = {'ok': False, 'message': 'تعذّر سحب الملف الآلي: %s' % e}
+            try:
+                self._auto_ready.emit(result)
+            except RuntimeError:
+                pass
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _auto_done(self, result):
+        """النتيجة على خيط الواجهة — نفتح الملف أو نعرض سبب التعذّر."""
+        self.auto_btn.setEnabled(True)
+        self.auto_btn.setText("الملف الآلي")
+        if not result.get('ok'):
+            QMessageBox.information(self.window(), "غير متوفر",
+                                    result.get('message') or "ما قدرنا نفتح الملف الآلي.")
+            return
+        path = result.get('open') or ''
+        if path and os.path.exists(path):
+            try:
+                os.startfile(path)
+            except Exception:
+                pass
+        folder = result.get('folder') or ''
+        msg = result.get('message') or "تم فتح الملف الآلي."
+        if folder:
+            msg += "\n\nالملفات محفوظة في:\n%s" % folder
+        QMessageBox.information(self.window(), "الملف الآلي", msg)
 
     def _emit_summary(self, summary):
         """من خيط الطابور: الإشارة تنقل الملخص لخيط الواجهة."""

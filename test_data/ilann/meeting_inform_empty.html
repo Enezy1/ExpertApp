@@ -1,0 +1,203 @@
+<div name="resp" id="resp"> </div><h1 style="text-align:center"><p>لا توجد بيانات</p></h1>  <div name="loadMember" id="loadMember"> </div>
+                </div>
+                <!-- END CONTENT BODY -->
+            </div>
+            <!-- END CONTENT -->
+            <!-- BEGIN QUICK SIDEBAR -->
+                         <!-- END QUICK SIDEBAR -->
+        </div>
+        <!-- END CONTAINER -->
+        <!-- BEGIN FOOTER -->
+
+                   <div class="page-footer">
+
+            <div class="page-footer-inner"> 2021 &copy; الادارة العامه للخبراء
+
+                <a target="_blank" href="#">قطاع تكنولوجيا المعلومات</a> &nbsp;|&nbsp;
+
+                <a href="#" title="سامح مجدى " target="_blank">وزاره العدل</a>
+
+                <div class="scroll-to-top">
+
+                    <i class="icon-arrow-up"></i>
+
+                </div>
+
+            </div>
+
+        <!-- END FOOTER -->
+            <!-- BEGIN QUICK NAV -->
+                  <!-- END QUICK NAV -->
+            <!--[if lt IE 9]>
+<script src="../assets/global/plugins/respond.min.js"></script>
+<script src="../assets/global/plugins/excanvas.min.js"></script>
+<script src="../assets/global/plugins/ie8.fix.min.js"></script>
+<![endif]-->
+            <!-- BEGIN CORE PLUGINS -->
+            <script src="../assets/global/plugins/jquery.min.js" type="text/javascript"></script>
+            <script src="../assets/global/plugins/bootstrap/js/bootstrap.min.js" type="text/javascript"></script>
+            <script src="../assets/global/plugins/js.cookie.min.js" type="text/javascript"></script>
+            <script src="../assets/global/plugins/jquery-slimscroll/jquery.slimscroll.min.js" type="text/javascript"></script>
+            <script src="../assets/global/plugins/jquery.blockui.min.js" type="text/javascript"></script>
+            <script src="../assets/global/plugins/bootstrap-switch/js/bootstrap-switch.min.js" type="text/javascript"></script>
+            <!-- END CORE PLUGINS -->
+
+            <!-- BEGIN PAGE LEVEL PLUGINS -->
+            <script src="../assets/global/plugins/ckeditor/ckeditor.js" type="text/javascript"></script>
+            <!-- <script src="../assets/global/plugins/bootstrap-pwstrength/pwstrength-bootstrap.min.js" type="text/javascript"></script> -->
+            <script src="../assets/global/plugins/autosize/autosize.min.js" type="text/javascript"></script>
+            <script src="../assets/global/plugins/bootstrap-maxlength/bootstrap-maxlength.min.js" type="text/javascript"></script>
+
+            <!-- END PAGE LEVEL PLUGINS -->
+            <!-- BEGIN THEME GLOBAL SCRIPTS -->
+            <script src="../assets/global/scripts/app.min.js" type="text/javascript"></script>
+            <!-- END THEME GLOBAL SCRIPTS -->
+            <!-- BEGIN PAGE LEVEL SCRIPTS -->
+            <!-- <script src="../assets/apps/scripts/calendar.min.js" type="text/javascript"></script> -->
+            <!-- <script src="../assets/apps/scripts/calendar.js" type="text/javascript"></script> -->
+            <!-- <script src="./includes/calendar.js" type="text/javascript"></script> -->
+
+            <!-- END PAGE LEVEL SCRIPTS -->
+            <!-- <script src="../assets/pages/scripts/components-date-time-pickers.min.js" type="text/javascript"></script> -->
+            <!-- BEGIN THEME LAYOUT SCRIPTS -->
+            <script src="../assets/layouts/layout2/scripts/layout.min.js" type="text/javascript"></script>
+            <script src="../assets/layouts/layout2/scripts/demo.min.js" type="text/javascript"></script>
+            <script src="../assets/layouts/global/scripts/quick-sidebar.min.js" type="text/javascript"></script>
+            <script src="../assets/layouts/global/scripts/quick-nav.min.js" type="text/javascript"></script>
+
+
+            <!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css"> -->
+             <!-- <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script> -->
+             <!-- <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script> -->
+
+            <!-- END THEME LAYOUT SCRIPTS -->
+            <script>
+                $(document).ready(function()
+                {
+                    $('#clickmewow').click(function()
+                    {
+                        $('#radio1003').attr('checked', 'checked');
+                    });
+                }
+              )
+
+              function showadd(part_id){
+                $.ajax({
+                  "url":"./includes/load_add.php",
+                  // "url":"../admin_2/MEETING_INFORM.php",
+                  "method":"post",
+                  "data":{part_id:part_id},
+                  success:function(response){
+                   $('#loadMember').html(response);
+                  }
+                })
+              };
+
+
+              function chang_gov(gov_id){
+                // alert(gov_id);
+                $.ajax({
+                  "url":"./includes/load_gov.php",
+                  // "url":"../admin_2/MEETING_INFORM.php",
+                  "method":"post",
+                  "data":{gov_id:gov_id},
+                  success:function(response){
+                   $('#ADRS_ZONE').html(response);
+                   // alert(response);
+                  }
+                })
+              };
+
+              function set_inf_type(new_info){
+                    $('#MAIN_CNTD_CODE').val(new_info.options[new_info.selectedIndex].text);
+              }
+
+function insert_inform_detail(){
+// var data = CKEDITOR.instances.editor1.getData();
+var form_data = new FormData();
+  form_data.append('MAIN_CNTD_CODE_NEW', $('#MAIN_CNTD_CODE_NEW').val());
+  form_data.append('MAIN_CNTD_TYPE_DESC', $('#MAIN_CNTD_TYPE_DESC').val());
+  form_data.append('ADRS_CITY', $('#ADRS_CITY').val());
+  form_data.append('ADRS_ZONE', $('#ADRS_ZONE').val());
+  form_data.append('ADRS_KASIMA', $('#ADRS_KASIMA').val());
+  form_data.append('ADRS_BLOCK', $('#ADRS_BLOCK').val());
+  form_data.append('ADRS_STREET', $('#ADRS_STREET').val());
+  form_data.append('ADRS_UNIT_TYPE', $('#ADRS_UNIT_TYPE').val());
+  form_data.append('ADRS_DESCR', $('#ADRS_DESCR').val());
+  form_data.append('ADRS_BUILDING_NO', $('#ADRS_BUILDING_NO').val());
+  form_data.append('ADRS_FLOOR', $('#ADRS_FLOOR').val());
+  form_data.append('ADRS_UNIT_NO', $('#ADRS_UNIT_NO').val());
+  form_data.append('ADDRNO', $('#ADDRNO').val());
+  form_data.append('EIF_NOTE', $('#EIF_NOTE').val());
+  form_data.append('part_id', $('#part_id').val());
+  form_data.append('CNT_SEQ', $('#CNT_SEQ').val());
+  $.ajax({
+   method:"POST",
+   url:'./includes/insert_inform_detail.php',
+   data:form_data,
+   contentType:false,
+   cache:false,
+   processData:false,
+//    success:function(data)
+//    {
+// // alert(response);
+// $('#resp').html(data);
+//    }
+success:function(data)
+{
+ // alert(data);
+  if (data==1){
+
+    Swal.fire({
+    icon: 'success',
+    title: 'تم حفظ الاعلان بنجاح',
+    showConfirmButton: true,
+    timer: 3000
+  }).then((result) => {
+if (result.value) {
+ location.reload();
+ // $('#mubashara_load').html(response.responseText);
+}
+})
+  }
+  else if (data==3) {
+    Swal.fire({
+    icon: 'error',
+    title: 'يوجد اعلان سابق لنفس الطرف فى نفس الجلسه',
+    showConfirmButton: true,
+    timer: 3000
+  })
+  }
+  else if (data==4) {
+    Swal.fire({
+    icon: 'error',
+    title: 'لا يجوز ادخال اعلان لجلسه سابقه',
+    showConfirmButton: true,
+    timer: 3000
+  })
+  }
+  else {
+    Swal.fire({
+    icon: 'error',
+    title: 'يوجد خطاء فى ادخال البيانات يرجى مراجعه البيانات',
+    showConfirmButton: true,
+    timer: 3000
+  })
+
+  }
+// alert(response);
+// $('#alert_div').html(response);
+
+
+}
+
+
+  });
+
+  function myFunction() {
+    document.getElementById("myForm").reset();
+  }
+}
+// ----------------------------end new meeting
+            </script>
+    

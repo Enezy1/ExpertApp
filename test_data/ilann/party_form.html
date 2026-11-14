@@ -1,0 +1,349 @@
+<div class="portlet-title ">
+
+               <div class="caption">
+
+                   <i class="fa fa-gift"></i> عنوان شركه الاتصالات المتنقله ش م ك </div>
+
+               <div class="tools">
+
+                   <a href="javascript:;" class="collapse"> </a>
+
+               </div>
+
+           </div>
+
+           <div class="portlet-body form">
+
+               <!-- BEGIN FORM-->
+
+               <form action="#" class="form-horizontal">
+
+                   <div class="form-body">
+
+                       <div class="row">
+
+
+
+                          <div class="col-md-12">
+
+                             <div class="form-group">
+
+                                <div class="col-md-12">
+
+                                   <select class="form-control" name="MAIN_CNTD_CODE_NEW" id="MAIN_CNTD_CODE_NEW" required onchange="set_inf_type(this);"> <option class="form-control required" value=10004>إرشـاد</option> <option class="form-control required" value=10006>مندوب(عنوان اخر)</option> <option class="form-control required" value=10005>النيابة العامة</option> <option class="form-control required" value=10002>فاكس</option> <option class="form-control required" value=10001 selected>مندوب</option> <option class="form-control required" value=10003>بريد مسجل</option></select>
+
+                                 </div>
+
+                           </div>
+
+                       </div>
+
+                     </div>
+
+
+
+                    <div class="row">
+
+
+
+                    <div class="col-md-1">
+
+                        <div class="form-group">
+
+                             <!-- <label class="control-label col-md-3">وسيله الاتصال </label>  -->
+
+                            <div class="col-md-9">
+
+                                <input type="hidden" id="MAIN_CNTD_CODE"  name="MAIN_CNTD_CODE"  class="form-control" placeholder=" وسيله الاتصال " Value="مندوب">
+
+                                <input type="hidden" id="part_id" name="part_id"  class="form-control" placeholder="" Value="160801">
+
+                                <input type="hidden" id="CNT_SEQ" name="CNT_SEQ"  class="form-control" placeholder="" Value="160799">
+
+                             </div>
+
+                        </div>
+
+                    </div>
+
+
+
+                        <div class="col-md-5">
+
+                            <div class="form-group">
+
+                                <label class="control-label col-md-3">عنوان اخر</label>
+
+                                <div class="col-md-9">
+
+                                    <input type="text" name="MAIN_CNTD_TYPE_DESC" id="MAIN_CNTD_TYPE_DESC" class="form-control" placeholder=" الوصف" Value="&nbsp">
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        <!--/span-->
+
+
+
+                        <!--/span-->
+
+                        <div class="col-md-3">
+
+                            <div class="form-group">
+
+                                <label class="control-label col-md-3"> المحافظه </label>
+
+                                <div class="col-md-9">
+
+                                <!--    <input  name="ADRS_CITY" id="ADRS_CITY" type="text" class="form-control" placeholder="" Value="محافظه العاصمه">   -->
+
+                                <select class="form-control" name="ADRS_CITY" id="ADRS_CITY" required onchange="chang_gov(this.value);" > <option class="form-control required" value=1 selected>محافظه العاصمه</option> <option class="form-control required" value=2>محافظه حولى</option> <option class="form-control required" value=3>محافظه الجهراء</option> <option class="form-control required" value=4>محافظه الاحمدى</option> <option class="form-control required" value=5>الفروانيه</option> <option class="form-control required" value=6>مبارك الكبير</option></select>
+
+                                </div>
+
+
+
+                            </div>
+
+                        </div>
+
+                        <div class="col-md-3">
+
+                            <div class="form-group">
+
+                                <label class="control-label col-md-3">المنطقه </label>
+
+                                <div class="col-md-9">
+
+                                <!-- <input type="text" class="form-control" name="ADRS_ZONE" id="ADRS_ZONE"  Value="شرق"  > -->
+
+
+
+
+
+                                <select class="form-control" name="ADRS_ZONE" id="ADRS_ZONE" required > <option class="form-control required" value=101>دسمان</option> <option class="form-control required" value=102 selected>شرق</option> <option class="form-control required" value=103>المرقاب</option> <option class="form-control required" value=105>القبله</option> <option class="form-control required" value=106>المنصوريه</option> <option class="form-control required" value=107>الدسمه</option> <option class="form-control required" value=108>بنيد القار</option> <option class="form-control required" value=109>الشاميه</option> <option class="form-control required" value=110>ضاحيه عبدالله السالم</option> <option class="form-control required" value=111>القادسيه</option> <option class="form-control required" value=112>الدعيه</option> <option class="form-control required" value=113>الفيحاء</option> <option class="form-control required" value=114>النزهه</option> <option class="form-control required" value=115>الشويخ</option> <option class="form-control required" value=116>كيفان</option> <option class="form-control required" value=117>معسكرات المباركيه</option> <option class="form-control required" value=118>الشويخ الصناعيه (1)</option> <option class="form-control required" value=119>غرناطه</option> <option class="form-control required" value=120>جزيره فيلكا</option> <option class="form-control required" value=121>جزيره وربه</option> <option class="form-control required" value=122>جزيره بوبيان</option> <option class="form-control required" value=123>جزيره مسكان</option> <option class="form-control required" value=124>جزيره عوهه</option> <option class="form-control required" value=125>جزيره كبر</option> <option class="form-control required" value=126>جزيره قاروه</option> <option class="form-control required" value=127>جزيره ام المرادم</option> <option class="form-control required" value=128>جزيره ام النمل</option> <option class="form-control required" value=129>الشويخ الصناعيه (2)</option> <option class="form-control required" value=130>الشويخ الصناعيه (3)</option> <option class="form-control required" value=131>المنطقه الصحيه</option> <option class="form-control required" value=132>الواجهه البحريه</option> <option class="form-control required" value=201>الخالديه</option> <option class="form-control required" value=202>العديليه</option> <option class="form-control required" value=203>الروضه</option> <option class="form-control required" value=204>حولى</option> <option class="form-control required" value=205>الشعب</option> <option class="form-control required" value=207>السالميه</option> <option class="form-control required" value=208>الرميثيه</option> <option class="form-control required" value=209>مشرف</option> <option class="form-control required" value=210>سلوى</option> <option class="form-control required" value=211>المسيله</option> <option class="form-control required" value=212>صباح السالم</option> <option class="form-control required" value=213>بيان</option> <option class="form-control required" value=214>اليرموك</option> <option class="form-control required" value=215>قرطبه</option> <option class="form-control required" value=216>السره</option> <option class="form-control required" value=217>الجابريه</option> <option class="form-control required" value=220>الفروانيه</option> <option class="form-control required" value=221>الرى</option> <option class="form-control required" value=222>العمريه</option> <option class="form-control required" value=223>الرابيه</option> <option class="form-control required" value=225>الرقعى</option> <option class="form-control required" value=224>الاندلس</option> <option class="form-control required" value=226>العارضيه</option> <option class="form-control required" value=227>الفردوس</option> <option class="form-control required" value=228>جليب الشيوخ</option> <option class="form-control required" value=229>منطقة وزارات</option> <option class="form-control required" value=230>الشهداء</option> <option class="form-control required" value=231>البدع</option> <option class="form-control required" value=232>صبحان الصناعيه</option> <option class="form-control required" value=233>المطار الدولى</option> <option class="form-control required" value=234>الزهراء</option> <option class="form-control required" value=235>حطين</option> <option class="form-control required" value=236>الصديق</option> <option class="form-control required" value=237>السلام</option> <option class="form-control required" value=238>منتزه السره</option> <option class="form-control required" value=241>صباح الناصر</option> <option class="form-control required" value=242>العارضيه (4)</option> <option class="form-control required" value=243>اشبيلية</option> <option class="form-control required" value=244>العارضيه (6)</option> <option class="form-control required" value=245>المنطقه الوسطى</option> <option class="form-control required" value=246>ضجيج الطائرات</option> <option class="form-control required" value=247>الرحاب</option> <option class="form-control required" value=248>العدان</option> <option class="form-control required" value=249>القصور</option> <option class="form-control required" value=250>القرين</option> <option class="form-control required" value=251>مبارك الكبير</option> <option class="form-control required" value=252>خيطان</option> <option class="form-control required" value=301>العقيله</option> <option class="form-control required" value=302>الرقه</option> <option class="form-control required" value=303>هديه</option> <option class="form-control required" value=304>الشريط الساحلى (ب)</option> <option class="form-control required" value=305>الفنطاس</option> <option class="form-control required" value=306>منطقه المهبوله</option> <option class="form-control required" value=307>ابوحليفه</option> <option class="form-control required" value=308>المنقف</option> <option class="form-control required" value=309>الصباحيه</option> <option class="form-control required" value=310>الفحيحيل</option> <option class="form-control required" value=311>الشعيبه</option> <option class="form-control required" value=313>على صباح السالم</option> <option class="form-control required" value=314>شرق الاحمدى</option> <option class="form-control required" value=315>الوفره</option> <option class="form-control required" value=316>الظهر</option> <option class="form-control required" value=317>شاليهات النويصيب</option> <option class="form-control required" value=318>شاليهات الخيران</option> <option class="form-control required" value=319>الوفرة الجديدة</option> <option class="form-control required" value=320>ميناء عبدالله</option> <option class="form-control required" value=321>بر محافظه الاحمدى</option> <option class="form-control required" value=322>المقوع</option> <option class="form-control required" value=323>الادعمى</option> <option class="form-control required" value=324>ابوالحصانيه</option> <option class="form-control required" value=325>الزور</option> <option class="form-control required" value=326>ضاحيه ابو فطيره</option> <option class="form-control required" value=327>الصبيحيه</option> <option class="form-control required" value=328>واره</option> <option class="form-control required" value=329>النويصيب</option> <option class="form-control required" value=330>جنوب الاحمدى</option> <option class="form-control required" value=331>غرب الاحمدى</option> <option class="form-control required" value=332>وسط الاحمدى</option> <option class="form-control required" value=333>شمال الاحمدى</option> <option class="form-control required" value=337>مزارع الوفره</option> <option class="form-control required" value=338>جنوب الصباحيه</option> <option class="form-control required" value=340>ضاحية جابر العلى</option> <option class="form-control required" value=341>الشريط الساحلى (ج)</option> <option class="form-control required" value=342>شاليهات الزور</option> <option class="form-control required" value=343>شاليهات الجليعه</option> <option class="form-control required" value=344>شاليهات بنيدر</option> <option class="form-control required" value=345>شاليهات الدوحه</option> <option class="form-control required" value=346>شاليهات الضباعيه</option> <option class="form-control required" value=347>شاليهات كاظمه</option> <option class="form-control required" value=348>شاليهات الصبيه</option> <option class="form-control required" value=401>الدوحه</option> <option class="form-control required" value=402>الصليبيخات</option> <option class="form-control required" value=403>الجهراء</option> <option class="form-control required" value=404>القصر</option> <option class="form-control required" value=405>النعيم</option> <option class="form-control required" value=406>السكراب</option> <option class="form-control required" value=407>الصليبيه الشعبيه</option> <option class="form-control required" value=408>الصليبيةالصناعية (1)</option> <option class="form-control required" value=409>العبدلى</option> <option class="form-control required" value=410>امغره الصناعية</option> <option class="form-control required" value=411>كبار المقاولين</option> <option class="form-control required" value=412>المطلاع</option> <option class="form-control required" value=413>كاظمه</option> <option class="form-control required" value=414>الروضتين</option> <option class="form-control required" value=415>ام العيش</option> <option class="form-control required" value=416>السالمى</option> <option class="form-control required" value=417>كبد</option> <option class="form-control required" value=418>بر محافظه الجهراء</option> <option class="form-control required" value=419>تيماء</option> <option class="form-control required" value=420>الواحه</option> <option class="form-control required" value=421>الشقايا</option> <option class="form-control required" value=422>الصبيه</option> <option class="form-control required" value=423>الصليبيةالصناعية (2)</option> <option class="form-control required" value=424>الصليبيه الزراعيه</option> <option class="form-control required" value=425>الاطراف</option> <option class="form-control required" value=426>ميناء الدوحه</option> <option class="form-control required" value=427>العيون</option> <option class="form-control required" value=428>معسكرات الجهراء</option> <option class="form-control required" value=429>النسيم</option> <option class="form-control required" value=430>ضاحيه الفنيطيس</option> <option class="form-control required" value=431>الجهراء الصناعيه</option> <option class="form-control required" value=432>الجنوبيه الجواخير</option> <option class="form-control required" value=433>الصليبيةالصناعية (3)</option> <option class="form-control required" value=434>الشعيبه الصناعيه (غ)</option> <option class="form-control required" value=435>شرق الصليبيخات</option> <option class="form-control required" value=436>مبارك العبد الله</option> <option class="form-control required" value=437>جنوب الجهراء</option> <option class="form-control required" value=438>غرب جليب الشيوخ</option> <option class="form-control required" value=439>فهد الأحمد</option> <option class="form-control required" value=440>جنوب الدوحة</option> <option class="form-control required" value=441>مدينة سعد العبدالله</option> <option class="form-control required" value=442>مدينة جابر الاحمد</option> <option class="form-control required" value=443>مدينة صباح الاحمد</option> <option class="form-control required" value=444>النهضه</option> <option class="form-control required" value=445>القيروان</option> <option class="form-control required" value=446>عبدالله المبارك</option> <option class="form-control required" value=447>الصالحيه</option> <option class="form-control required" value=448>المنطقه الحره</option> <option class="form-control required" value=449>محكمه الفروانيه الجديده</option> <option class="form-control required" value=450>محاكم الجهراء الجديدة</option> <option class="form-control required" value=460>المبنى الرئيسى الرقعى</option> <option class="form-control required" value=452>المسايل</option> <option class="form-control required" value=451>شمال غرب الصلبيخات</option> <option class="form-control required" value=470>جنوب عبدالله المبارك</option> <option class="form-control required" value=260>ضاحية المباركية</option> <option class="form-control required" value=455>مدينه الخيران</option> <option class="form-control required" value=480>العارضيه الصناعيه</option> <option class="form-control required" value=55>القصر</option> <option class="form-control required" value=481>المطلاع N1</option> <option class="form-control required" value=482>المطلاع N2</option> <option class="form-control required" value=483>المطلاع N3</option> <option class="form-control required" value=484>المطلاع N4</option> <option class="form-control required" value=485>المطلاع N5</option> <option class="form-control required" value=486>المطلاع N6</option> <option class="form-control required" value=487>المطلاع N7</option> <option class="form-control required" value=488>المطلاع N8</option> <option class="form-control required" value=489>المطلاع N9</option> <option class="form-control required" value=490>المطلاع N10</option> <option class="form-control required" value=491>المطلاع N11</option> <option class="form-control required" value=492>المطلاع N12</option> <option class="form-control required" value=493>ضاحية حصة المبارك</option> <option class="form-control required" value=453>ابو فطيره الحرفيه</option> <option class="form-control required" value=454>غرب عبدالله المبارك</option> <option class="form-control required" value=456>صباح الاحمد البحريه</option></select></div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <!--/row-->
+
+                    <div class="row">
+
+                        <div class="col-md-3">
+
+                            <div class="form-group">
+
+                                <label class="control-label col-md-3"> جاده</label>
+
+                                <div class="col-md-9">
+
+                                <input type="text" class="form-control" maxlength="10" name="ADRS_KASIMA" id="ADRS_KASIMA" placeholder="جاده " Value=->
+
+                                </div>
+
+
+
+                            </div>
+
+                        </div>
+
+                        <!--/span-->
+
+                        <div class="col-md-3">
+
+                            <div class="form-group">
+
+                                <label class="control-label col-md-3">القطعه  </label>
+
+                                <div class="col-md-9">
+
+                                    <input type="text" class="form-control" maxlength="4" name="ADRS_BLOCK" id="ADRS_BLOCK" placeholder= "" Value=5>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        <!--/span-->
+
+                        <div class="col-md-3">
+
+                            <div class="form-group">
+
+                                <label class="control-label col-md-3">الشارع </label>
+
+                                <div class="col-md-9">
+
+                                <input type="text" class="form-control" name="ADRS_STREET" id="ADRS_STREET" placeholder="الشارع" Value=احمد الجابر>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        <div class="col-md-3">
+
+                            <div class="form-group">
+
+                                <label class="control-label col-md-3">نوع الوحده </label>
+
+                                <div class="col-md-9">
+
+                                    <input type="text" class="form-control"  name="ADRS_UNIT_TYPE" id="ADRS_UNIT_TYPE" placeholder=" نوع الوحده" Value="دور">
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+
+                    </div>
+
+                    <!--/row-->
+
+                    <div class="row">
+
+                        <div class="col-md-3">
+
+                            <div class="form-group">
+
+                                <label class="control-label col-md-3">الوصف </label>
+
+                                <div class="col-md-9">
+
+                                <input type="text" class="form-control" name="ADRS_DESCR" id="ADRS_DESCR" placeholder="" Value="مكتب ضاري مبارك الواوان - شارع أحمد الجابر برج برايم legal@alwawan.net">
+
+                                </div>
+
+                            </div>
+
+                      </div>
+
+                        <!--/span-->
+
+                        <div class="col-md-3">
+
+                            <div class="form-group">
+
+                                <label class="control-label col-md-3">المبنى</label>
+
+                                <div class="col-md-9">
+
+                                <input type="text" class="form-control" maxlength="5" name="ADRS_BUILDING_NO" id="ADRS_BUILDING_NO"  Value="برايم"  >
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        <!--/span-->
+
+                        <div class="col-md-3">
+
+                            <div class="form-group">
+
+                                <label class="control-label col-md-3">الدور  </label>
+
+                                <div class="col-md-9">
+
+                                <input type="text" class="form-control"  maxlength="5" name="ADRS_FLOOR" id="ADRS_FLOOR" placeholder="" Value=10>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        <div class="col-md-3">
+
+                            <div class="form-group">
+
+                                <label class="control-label col-md-3">رقم الوحده  </label>
+
+                                <div class="col-md-9">
+
+                                    <input type="text" class="form-control" maxlength="5" name="ADRS_UNIT_NO" id="ADRS_UNIT_NO"  placeholder=" رقم الوحده" Value="23">
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="row">
+
+                        <div class="col-md-3">
+
+                            <div class="form-group">
+
+                                <label class="control-label col-md-3">الرقم الالى</label>
+
+                                <div class="col-md-9">
+
+                                      <input type="text" class="form-control" maxlength="12" name="ADDRNO" id="ADDRNO" placeholder=" الرقم الالى" Value="null">
+
+                                </div>
+
+
+
+                            </div>
+
+                        </div>
+
+                        <!--/span-->
+
+                        <div class="col-md-9">
+
+                            <div class="form-group">
+
+                                <div class="col-md-12">
+
+                                    <input type="text" class="form-control" maxlength="150" name="EIF_NOTE" id="EIF_NOTE" placeholder=" الملاحظات" Value="مكتب ضاري مبارك الواوان - شارع أحمد الجابر برج برايم legal@alwawan.net">
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                  </div>
+
+
+
+                </div>
+
+
+
+                <div class="form-actions right">
+
+                    <button type="button" class="btn btn-success btn-block" onclick="history.back()"><b>الـــعودة</b></button>
+
+                    <button type="button" class="btn btn-primary btn-block" onclick="insert_inform_detail()"><b> حفظ وارســــال</b></button>
+
+                </div>
+
+
+
+            </form>
+
+            <!-- END FORM-->
+
+        </div>
+
+    </div>
+
+  </div>

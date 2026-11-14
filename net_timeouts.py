@@ -54,8 +54,9 @@ SESSIONS_LOAD_TIMEOUT = (CONNECT_TIMEOUT, 12)
 #: عمليات الكتابة (إدراج جلسة / تحديد مصدر / إرسال مباشرة) — نتسامح أكثر
 WRITE_TIMEOUT = (CONNECT_TIMEOUT, 15)
 
-#: صفحة المستندات (ShowImg.php) — ترسم الأقسام كلها، ثقيلة مثل التقويم
-DOCUMENTS_TIMEOUT = (CONNECT_TIMEOUT, 15)
+#: صفحة المستندات (ShowImg.php) — ترسم الأقسام كلها. 30 ث (12/11/2026): 15 ث كانت تنقطع
+#: وقت بطء السيرفر، والطلب المقطوع يبقى شغّالاً عند السيرفر فتتعطّل المحاولة التالية.
+DOCUMENTS_TIMEOUT = (CONNECT_TIMEOUT, 30)
 
 #: مسار ← مهلة. المفتاح '*' هو الافتراضي.
 MINISTRY_TIMEOUTS = {

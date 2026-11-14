@@ -25,6 +25,21 @@ from pending_cases import get_title_fallback
 USER_ID = "309"
 
 
+def _case_documents_dir(caso_no):
+    """مجلد مستندات القضية — **داخل «تقارير الخبراء»** (مو على سطح المكتب).
+
+    قرار العنزي: كل شي يكون في فولدر واحد (تقارير الخبراء ⟵ مجلد القضية).
+    """
+    try:
+        import case_workspace
+        import case_folder
+        base, _data = case_workspace.ensure_workspace({'caso_no': caso_no})
+        return os.path.join(base, case_folder.SYSDOCS)
+    except Exception:
+        return os.path.join(os.path.expanduser("~"), "Documents", "تقارير الخبراء",
+                            str(caso_no), "مستندات_النظام")
+
+
 def _switch_to_english():
     """يحوّل لغة الإدخال للنافذة الحالية إلى الإنجليزية (ويندوز فقط، بصمت لو فشل)"""
     try:
@@ -448,7 +463,13 @@ class CaseLookupPage(QWidget):
             sections = parse_sections(html)
         except Exception as e:
             QApplication.restoreOverrideCursor()
-            QMessageBox.critical(self, "خطأ", f"تعذر جلب قائمة الملفات:\n{th.ltr(e)}")
+            import requests
+            if isinstance(e, (requests.exceptions.Timeout, requests.exceptions.ConnectionError)):
+                msg = ("نظام الخبراء بطيء حالياً ولم يرد في الوقت المناسب.\n"
+                       "انتظر دقيقة ثم أعد المحاولة.")
+            else:
+                msg = f"تعذر جلب قائمة الملفات:\n{th.ltr(e)}"
+            QMessageBox.critical(self, "خطأ", msg)
             return
         QApplication.restoreOverrideCursor()
 
@@ -541,7 +562,7 @@ class CaseLookupPage(QWidget):
                 return
             import re
             from documents import download_judgment_pdf
-            folder = os.path.join(os.path.expanduser("~"), "Desktop", "judgments", str(self._last_caso_no))
+            folder = _case_documents_dir(str(self._last_caso_no))
             os.makedirs(folder, exist_ok=True)
             ok, failed = 0, []
             used = set()
@@ -614,7 +635,7 @@ class CaseLookupPage(QWidget):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             from documents import get_case_documents_bundle
-            case_dir = os.path.join(os.path.expanduser("~"), "Desktop", "judgments", str(self._last_caso_no))
+            case_dir = _case_documents_dir(str(self._last_caso_no))
             os.makedirs(case_dir, exist_ok=True)
             bundle = get_case_documents_bundle(
                 self.cookies, self._last_autocase_no, USER_ID, case_dir)

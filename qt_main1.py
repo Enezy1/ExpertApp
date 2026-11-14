@@ -981,7 +981,8 @@ class Main1Page(QWidget):
             self.status_lbl.setText(f"⏳ {text}")
             QApplication.processEvents()
         try:
-            save_dir = os.path.join(os.path.expanduser("~"), "Desktop", "judgments")
+            # الحكم ينحفظ داخل مجلد القضية في «تقارير الخبراء» (مو على سطح المكتب)
+            save_dir = self._print_dir()
             os.makedirs(save_dir, exist_ok=True)
             save_path = os.path.join(save_dir, f"{caso_no}_MAIN1.pdf")
             judgment, path = get_referral_judgment_for_case(
@@ -1461,8 +1462,23 @@ class Main1Page(QWidget):
 
     # ---------- 👁 معاينة الملف: صحيفة الدعوى + حكم الإحالة (ملف واحد) ----------
     def _print_dir(self):
-        """مجلد حفظ الملفات المنزَّلة (نفس مجلد الاستخراج)."""
-        d = os.path.join(os.path.expanduser("~"), "Desktop", "judgments")
+        """مجلد حفظ الملفات المنزَّلة — **داخل مجلد القضية** في «تقارير الخبراء».
+
+        (كان `Desktop\\judgments` — قرار العنزي: كل شيء في فولدر واحد داخل
+        «تقارير الخبراء»، مو على سطح المكتب.)
+        """
+        caso_no = (self.extracted.get('caso_no') or '').strip()
+        d = ''
+        if caso_no:
+            try:
+                import case_workspace
+                import case_folder
+                base, _data = case_workspace.ensure_workspace({'caso_no': caso_no})
+                d = os.path.join(base, case_folder.SYSDOCS)
+            except Exception:
+                d = ''
+        if not d:
+            d = os.path.join(os.path.expanduser("~"), "Documents", "تقارير الخبراء")
         try:
             os.makedirs(d, exist_ok=True)
         except Exception:

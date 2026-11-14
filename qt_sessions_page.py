@@ -346,7 +346,11 @@ def _pill(text, bg, fg):
 
 def _menu_icon(kind):
     """أيقونة خطية مرسومة بالكود (بلا ملفات — آمنة مع PyInstaller):
-    كحلي بالوضع العادي، زمردي داكن عند المرور (QIcon.Mode.Active)"""
+    كحلي بالوضع العادي، زمردي داكن عند المرور (QIcon.Mode.Active)
+
+    الرسم من `qt_icons` نفسه (مصدر واحد) — كان هنا نسخة منفصلة ما فيها 'upload'
+    فظهرت «طلب إعلان» بلا أيقونة بينما الباقي كله بأيقونة.
+    """
     icon = QIcon()
     for mode, color in ((QIcon.Mode.Normal, th.NAVY), (QIcon.Mode.Active, th.EMERALD_TEXT),
                         (QIcon.Mode.Selected, th.EMERALD_TEXT)):
@@ -355,35 +359,7 @@ def _menu_icon(kind):
         p = QPainter(pm)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         p.scale(2, 2)                      # رسم على شبكة 18×18 بدقة مضاعفة
-        pen = QPen(QColor(color), 1.6)
-        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        p.setPen(pen)
-        p.setBrush(Qt.BrushStyle.NoBrush)
-        if kind == 'calendar':             # ورقة تقويم: حلقتان + سطر رأس + نقطة يوم
-            p.drawRoundedRect(QRectF(2.5, 4.0, 13.0, 11.5), 2.2, 2.2)
-            p.drawLine(QPointF(6.0, 2.4), QPointF(6.0, 5.6))
-            p.drawLine(QPointF(12.0, 2.4), QPointF(12.0, 5.6))
-            p.drawLine(QPointF(2.5, 7.8), QPointF(15.5, 7.8))
-            p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(QBrush(QColor(color)))
-            p.drawEllipse(QPointF(11.4, 11.6), 1.4, 1.4)
-        elif kind == 'gov':                # مبنى حكومي: سقف مثلث + ثلاثة أعمدة + قاعدة
-            roof = QPainterPath()
-            roof.moveTo(2.2, 6.6)
-            roof.lineTo(9.0, 2.4)
-            roof.lineTo(15.8, 6.6)
-            roof.closeSubpath()
-            p.drawPath(roof)
-            for x in (4.8, 9.0, 13.2):
-                p.drawLine(QPointF(x, 8.8), QPointF(x, 13.2))
-            p.drawLine(QPointF(2.2, 15.6), QPointF(15.8, 15.6))
-        elif kind == 'session':            # ساعة + علامة إضافة: جلسة قادمة
-            p.drawEllipse(QPointF(7.6, 10.0), 5.6, 5.6)
-            p.drawLine(QPointF(7.6, 10.0), QPointF(7.6, 6.9))
-            p.drawLine(QPointF(7.6, 10.0), QPointF(9.8, 11.3))
-            p.drawLine(QPointF(14.6, 1.9), QPointF(14.6, 6.3))
-            p.drawLine(QPointF(12.4, 4.1), QPointF(16.8, 4.1))
+        ic._draw(p, kind, color)
         p.end()
         pm.setDevicePixelRatio(2)
         icon.addPixmap(pm, mode)
@@ -1168,15 +1144,62 @@ class SessionCardQt(QWidget):
         a1 = menu.addAction(_menu_icon('calendar'), "إضافة للتقويم")
         a2 = menu.addAction(_menu_icon('gov'), "إخطار جهة حكومية")
         menu.addSeparator()   # ما يكتب في نظام الخبراء مفصول عمّا يبقى على جهازك
+        # «طلب إعلان» يكتب في نظام الخبراء ⟵ تحت الفاصل. والجلسة لازم تكون
+        # قادمة: النظام ما يقبل إعلان لجلسة سابقة (يرجّع «4»).
+        a4 = None
+        if not self._past:
+            a4 = menu.addAction(_menu_icon('file'), "طلب إعلان")
         a3 = menu.addAction(_menu_icon('session'), "إضافة جلسة قادمة")
         action = menu.exec(_menu_anchor(self.more_btn, menu))
         if action == a1:
             self._add_to_calendar()
         elif action == a2:
             self._print_gov_notice()
+        elif a4 is not None and action == a4:
+            self._request_inform()
         elif action == a3:
             dlg = AddSessionDialog(self.window(), self.cookies, self.caso, self.case_title, self.time, self.on_refresh)
             dlg.exec()
+
+    def _request_inform(self):
+        """«طلب إعلان» — القضية والجلسة معروفان من بطاقة الجلسة ⟵ ما في خطوة جلب قضية.
+
+        الإرسال نفسه يروح لنظام الخبراء (نفس نقطة النظام: insert_inform_detail.php).
+        """
+        if getattr(self, '_job_running', False):
+            return
+        if self._past:
+            QMessageBox.information(self, "طلب إعلان",
+                                    "الإعلان يكون لجلسة قادمة — هذي الجلسة مضى وقتها.")
+            return
+        try:
+            case_data = self._ensure_case_data()
+        except Exception:
+            QMessageBox.critical(self, "طلب إعلان",
+                                 "تعذّر جلب بيانات القضية من نظام الخبراء.\n"
+                                 "تأكد من الاتصال وحاول مرة ثانية.")
+            return
+        auto_no = (case_data or {}).get('autocase_no', '') or ''
+        cookies, caso = self.cookies, self.caso
+        date, tm, title = self.date, self.time, self.case_title
+
+        def work():
+            import ilann
+            try:
+                return ilann.fetch_page(cookies, caso, auto_no)
+            except Exception:
+                return {'ok': False, 'reason': 'connection',
+                        'message': 'تعذّر الاتصال بنظام الخبراء',
+                        'case': {}, 'parties': [], 'results': []}
+
+        def done(data):
+            from qt_ilann_page import IlannDialog
+            dlg = IlannDialog(cookies, caso, data=data, auto_no=auto_no,
+                               session_date=date, session_time=tm, case_title=title,
+                               current_user=self.user, parent=self.window())
+            dlg.exec()
+
+        self._run_job(work, done)
 
     def _busy(self, on):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor if on else Qt.CursorShape.ArrowCursor)

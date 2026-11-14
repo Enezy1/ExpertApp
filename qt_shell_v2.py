@@ -523,6 +523,8 @@ class ExpertAppQt(QMainWindow):
         self.my_files_page = MyFilesPage(cookies, current_user)
         from qt_expert_reports import ExpertReportsPage
         self.expert_reports_page = ExpertReportsPage(cookies, current_user)
+        # «طلب إعلان» مو صفحة مستقلة — تفتح من بطاقة الجلسة («إجراءات أخرى»
+        # ← «طلب إعلان») لأن الإعلان لازم يكون لجلسة قادمة معروفة.
 
         self.pages = {
             'myfiles': self.my_files_page,
