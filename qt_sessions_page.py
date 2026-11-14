@@ -344,15 +344,24 @@ def _stamp_ambiguous_kinds(sessions, cookies):
         from config import IGNORED_SESSION_COLORS
         from api import get_case_session_kinds
         amb = {c.lower() for c in IGNORED_SESSION_COLORS}
-        cache = {}
-        for s in sessions:
-            if (s.get('backgroundColor') or '').strip().lower() not in amb:
-                continue
-            caso = s.get('description') or ''
-            if not caso:
-                continue
-            if caso not in cache:
-                cache[caso] = get_case_session_kinds(caso, cookies)
+        todo = [s for s in sessions
+                if (s.get('backgroundColor') or '').strip().lower() in amb
+                and s.get('description')]
+        cases = sorted({s['description'] for s in todo})
+        if not cases:
+            return
+        # طلب سجل الحركة لكل قضية **بالتوازي** (كان واحد ورا الثاني ⟵ يبطّئ تنزيل الجلسات)
+        from concurrent.futures import ThreadPoolExecutor
+
+        def one(c):
+            try:
+                return c, get_case_session_kinds(c, cookies)
+            except Exception:
+                return c, {}
+        with ThreadPoolExecutor(max_workers=6) as ex:
+            cache = dict(ex.map(one, cases))
+        for s in todo:
+            caso = s['description']
             start = s.get('start') or ''
             k = cache[caso].get((start[:10], start[11:16]), '')
             if k:

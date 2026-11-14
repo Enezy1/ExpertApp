@@ -71,14 +71,20 @@ SEND_MESSAGES = {
     'err': 'ما نقدر نأكد إذا وصل الإعلان — حدّث النتائج قبل إعادة الإرسال.',
 }
 
-#: ألوان نقاط بطاقات الهوية (نفس منطق التصميم المرجعي)
-FACT_DOTS = {
-    'caso': th.NAVY,
-    'auto': th.TEXT_MUTED,
-    'case': th.TEXT_MUTED,
-    'date': th.AMBER,
-    'time': th.EMERALD,
+#: شارات بطاقات الهوية — أيقونة دائرية: أخضر للجلسة (وقت/تاريخ) · كحلي لمعلومات القضية
+FACT_ICONS = {
+    'caso': ('file', th.NAVY, th.NAVY_TINT),
+    'case': ('scales', th.NAVY, th.NAVY_TINT),
+    'auto': ('gear', th.NAVY, th.NAVY_TINT),
+    'date': ('calendar', th.EMERALD, th.EMERALD_BG),
+    'time': ('clock', th.EMERALD, th.EMERALD_BG),
 }
+
+
+def _fact_icon(key):
+    """خيارات الشارة الدائرية لبطاقة هوية (أيقونة + لون + خلفية)."""
+    kind, color, bg = FACT_ICONS[key]
+    return {'icon_kind': kind, 'badge_color': color, 'badge_bg': bg}
 
 
 # ---------------------------------------------------------------------------
@@ -135,8 +141,21 @@ def _fmt_date(value):
     return v or '—'
 
 
-def _fact(label, value, latin=False, dot_color=None):
-    """بطاقة هوية: تسمية صغيرة + نقطة + قيمة كبيرة (نمط التصميم المرجعي)."""
+def _icon_badge(kind, color, bg, size=34):
+    """شارة أيقونة دائرية (حلقة ملوّنة) — بدل النقطة الصغيرة."""
+    badge = QFrame()
+    badge.setObjectName('icon_badge')
+    badge.setFixedSize(size, size)
+    badge.setStyleSheet(f"background:{bg}; border:none; border-radius:{size // 2}px;")
+    lay = QHBoxLayout(badge)
+    lay.setContentsMargins(0, 0, 0, 0)
+    lay.setSpacing(0)
+    lay.addWidget(_icon(kind, color, 20))
+    return badge
+
+
+def _fact(label, value, latin=False, icon_kind=None, badge_color=None, badge_bg=None):
+    """بطاقة هوية: شارة أيقونة دائرية + تسمية + قيمة كبيرة."""
     box = QFrame()
     box.setObjectName('fact')
     box.setStyleSheet(f"QFrame#fact {{ background:{th.SURFACE}; border:1px solid {th.BORDER};"
@@ -146,11 +165,12 @@ def _fact(label, value, latin=False, dot_color=None):
     lay.setSpacing(6)
 
     top = QHBoxLayout()
-    top.setSpacing(6)
+    top.setSpacing(8)
     top.addStretch()
     top.addWidget(_lbl(label, color=th.TEXT_SECONDARY, size=th.FS_CAPTION, selectable=False))
-    if dot_color:
-        top.addWidget(_dot(dot_color, 8))
+    if icon_kind:
+        top.addWidget(_icon_badge(icon_kind, badge_color or th.NAVY,
+                                   badge_bg or th.NAVY_TINT))
     lay.addLayout(top)
 
     val = _lbl(th.ltr(value) if latin else (value or '—'),
@@ -1079,16 +1099,16 @@ class IlannDialog(QDialog):
         row.setSpacing(10)
 
         row.addWidget(_fact('رقم ملف الخبرة', self.caso_no or '—', latin=True,
-                            dot_color=FACT_DOTS['caso']), 1)
-        self.fact_case_no = _fact('رقم القضية', '—', latin=True, dot_color=FACT_DOTS['case'])
+                            **_fact_icon('caso')), 1)
+        self.fact_case_no = _fact('رقم القضية', '—', latin=True, **_fact_icon('case'))
         self.fact_auto_no = _fact('الرقم الآلي للقضية', self.auto_no or '—', latin=True,
-                                  dot_color=FACT_DOTS['auto'])
+                                  **_fact_icon('auto'))
         row.addWidget(self.fact_case_no, 1)
         row.addWidget(self.fact_auto_no, 1)
         row.addWidget(_fact('تاريخ الجلسة القادمة', _fmt_date(self.session_date),
-                            dot_color=FACT_DOTS['date']), 1)
+                            **_fact_icon('date')), 1)
         row.addWidget(_fact('وقت الجلسة القادمة', self.session_time or '—', latin=True,
-                            dot_color=FACT_DOTS['time']), 1)
+                            **_fact_icon('time')), 1)
         self.content_layout.addWidget(wrap)
 
     def _build_parties(self):
@@ -1231,7 +1251,7 @@ class IlannDialog(QDialog):
         self.btn_send = PrimaryButton('إرسال الإعلان')
         self.btn_send.setFixedHeight(38)
         self.btn_send.setMinimumWidth(150)
-        self.btn_send.setIcon(ic.icon('upload', th.EMERALD_ON_NAVY, size=16))
+        # بدون أيقونة: زر الإرسال ما له علاقة برفع ملفات (طلب العنزي 15/11/2026)
         self.btn_send.setAccessibleName('إرسال الإعلان — كتابة في نظام الخبراء')
         self.btn_send.clicked.connect(self._send_selected)
         self.btn_send.setEnabled(False)
@@ -1265,9 +1285,11 @@ class IlannDialog(QDialog):
                 'offline' if reason == 'connection' else 'gov', title,
                 'جرّب «تحديث» بعد ما تتأكد من الاتصال.',
                 retry_cb=self.refresh))
-            self._fill_results([], note='ما قدرنا نجيب نتيجة الإعلان — تعذّر الاتصال بنظام الخبراء.')
+            offline = (reason == 'connection')
+            self._fill_results([], note=('ما قدرنا نجيب نتيجة الإعلان — تعذّر الاتصال بنظام الخبراء.'
+                                         if offline else 'ما في نتيجة إعلان — النظام ما رجّع بيانات لهذه القضية.'))
             self.btn_print.setEnabled(False)
-            self._set_connection(False)
+            self._set_connection(not offline)   # «لا توجد بيانات» ≠ انقطاع اتصال
             return
 
         self._fill_parties(self.data.get('parties') or [])

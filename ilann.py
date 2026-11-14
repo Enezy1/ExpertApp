@@ -347,6 +347,18 @@ def select_case(cookies, caso_no, auto_no):
     return '1' in (r.text or '')
 
 
+def resolve_auto_no(caso_no, cookies, fallback=''):
+    """الرقم الآلي: من النظام (basic_info) أولاً، وإلا `fallback` (المحلي)."""
+    try:
+        import case_stats
+        info = case_stats.get_case_basic_info(caso_no, cookies) or {}
+        if info.get('autocase_no'):
+            return str(info['autocase_no']).strip()
+    except Exception:
+        pass
+    return str(fallback or '').strip()
+
+
 def fetch_page(cookies, caso_no, auto_no):
     """يقرأ صفحة «طلب اعلان» كاملة.
 
@@ -355,6 +367,9 @@ def fetch_page(cookies, caso_no, auto_no):
          'message': str, 'reason': 'connection'|'no_data'|''}
     """
     out = {'ok': False, 'case': {}, 'parties': [], 'results': [], 'message': '', 'reason': ''}
+    # الرقم الآلي من النظام أولاً (مصدر موثوق)؛ المحلي من القاعدة قد يكون قديم/غلط
+    # ⟵ يختار قضية غلط فترجع «لا توجد بيانات». (هذا اللي انكسر لما شلنا الجلب.)
+    auto_no = resolve_auto_no(caso_no, cookies, auto_no)
     try:
         selected = select_case(cookies, caso_no, auto_no)
     except Exception:
