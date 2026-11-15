@@ -1581,18 +1581,33 @@ class SessionsPage(QWidget):
         return result
 
     def _record_sessions_locally(self, sessions_list):
+        """تخزين جماعي للجلسات المستلمة — كتابة واحدة بدل صف‑بصف.
+
+        ⚠️ ليش تغيّر: `load.php` يتجاهل نطاق التاريخ ويرجّع كل جلسات
+        الخبير (نحو 2266 سجل). الكتابة صف‑بصف (اتصال + commit لكل جلسة)
+        كانت تاخذ ≈13 ثانية قبل ما تظهر أول بطاقة. الآن: دفعة واحدة
+        واتصال واحد وcommit واحد — والسجلات الموجودة ما تتلمس (ما ينمسح
+        `session_type` ولا `title` ولا `updated_at`).
+
+        ملاحظة: نمرّر **كل** الجلسات المستلمة (مو بس المعروضة) — بعض
+        القضايا آخر جلسة لها أقدم من نافذة العرض، ونحتاجها محلياً عشان
+        نكتشف القضايا المتداولة بلا جلسة قادمة.
+        """
+        rows = []
         for s in sessions_list or []:
             caso = s.get('description', '')
             if not caso:
                 continue
-            parts = s.get('start', '').split(' ')
+            parts = (s.get('start') or '').split(' ')
             date = parts[0] if parts else ''
             time = parts[1] if len(parts) > 1 else ''
-            title = s.get('title', '').strip().replace(caso, '').strip()
-            try:
-                case_db.upsert_session(caso, date, time, '', title)
-            except Exception:
-                pass
+            title = (s.get('title') or '').strip().replace(caso, '').strip()
+            rows.append((caso, date, time, title))
+        try:
+            case_db.upsert_sessions_bulk(rows)
+        except Exception:
+            pass
+
 
     def _get_title_fallback(self, caso_no):
         if caso_no in self._title_map:

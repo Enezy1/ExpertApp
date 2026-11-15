@@ -443,6 +443,55 @@ def upsert_session(caso_no, date, time='', session_type='', title=''):
     conn.close()
 
 
+def upsert_sessions_bulk(sessions):
+    """
+    يسجّل **دفعة واحدة** من الجلسات — INSERT للجديد فقط، بلا مساس بالموجود.
+
+    sessions: قائمة عناصر، كل عنصر (caso_no, date, time, title).
+
+    ⚠️ ليش دفعة وINSERT فقط:
+    - `load.php` **يتجاهل** نطاق التاريخ ويرجّع كل جلسات الخبير (نحو 2266
+      سجل من 2012 لين اليوم) في كل مرة. الكتابة صف‑بصف كانت = 2266 اتصال
+      + 2266 commit ≈ **13 ثانية** قبل ما تظهر أول بطاقة.
+    - إعادة الكتابة كانت تمسح `session_type` الحقيقي: الصفوف الموجودة
+      كانت تنكتب `session_type=''` وتفرغ القيمة اللي `AddSessionDialog`
+      حفظها ('فتح محضر'…) — والـ'upsert' القديم كان يحدّث `title` و
+      `updated_at` بلا فائدة (ما أحد يقرأ `updated_at` من جدول sessions).
+
+    المبدأ هنا: الموجود **لا يُمس** إطلاقاً (لا session_type ولا title ولا
+    updated_at) — الجديد فقط يُضاف. اتصال واحد + transaction واحدة +
+    commit واحد لكل الدفعة.
+
+    ⚠️ تطبيع المطابقة لازم يكون **نفس** تطبيع `upsert_session` بالضبط
+    (caso_no فوقية + التاريخ YYYY-MM-DD) وإلا تكرّرت الصفوف بدل ما تُتجاهل.
+    """
+    rows = []
+    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    for item in sessions or []:
+        caso_no, date, time, title = item
+        caso_no = (caso_no or '').strip().upper()
+        if not caso_no:
+            continue
+        d = _normalize_session_date(date)
+        if not d:
+            continue
+        rows.append((caso_no, d, time or '', title or '', now))
+    if not rows:
+        return 0
+    conn = _connect()
+    try:
+        # نفس الـUNIQUE الفعلي بالجدول: (caso_no, session_date, session_time)
+        conn.executemany("""
+            INSERT INTO sessions (caso_no, session_date, session_time, session_type, title, updated_at)
+            VALUES (?, ?, ?, '', ?, ?)
+            ON CONFLICT(caso_no, session_date, session_time) DO NOTHING
+        """, rows)
+        conn.commit()
+    finally:
+        conn.close()
+    return len(rows)
+
+
 def get_no_upcoming_cases(expert_name=None):
     """
     يرجّع القضايا "المتداولة فعلياً" (status='متداولة' بجدول cases، ولنفس
