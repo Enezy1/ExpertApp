@@ -690,7 +690,10 @@ def build_values(data, cities=None, zones=None):
     for src, dst in ADDR_FIELD_MAP:
         value = latin_digits(clean(addr.get(src)))
         if value:
-            fields[dst] = value
+            # ⚠️ قصّ حسب حدّ النظام (maxlength) — مثل الموقع بالضبط.
+            #    بدونه يرفض السيرفر القيمة بـORA-12899 (15/11/2026):
+            #    «value too large for column … ADRS_BUILDING_NO (actual: 9, maximum: 5)»
+            fields[dst] = ilann.truncate_field(dst, value)
 
     # العنوان «مثل ما هو مكتوب»: لو ما في وصف كامل نركّبه من الأجزاء
     if not fields.get('ADRS_DESCR'):

@@ -1221,7 +1221,10 @@ class SessionCardQt(QWidget):
         def work():
             import ilann
             try:
-                return ilann.fetch_page(cookies, caso, auto_no)
+                # ⚠️ تاريخ الجلسة ووقتها مطلوبين: السيرفر يقرأهما من جلسته
+                #    (ECS_MET_DATE / ECS_MET_TIME) — بدونها يرد «4» (جلسة سابقة).
+                return ilann.fetch_page(cookies, caso, auto_no,
+                                        session_date=date, session_time=tm)
             except Exception:
                 return {'ok': False, 'reason': 'connection',
                         'message': 'تعذّر الاتصال بنظام الخبراء',
@@ -1607,7 +1610,6 @@ class SessionsPage(QWidget):
             case_db.upsert_sessions_bulk(rows)
         except Exception:
             pass
-
 
     def _get_title_fallback(self, caso_no):
         if caso_no in self._title_map:

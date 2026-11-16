@@ -68,6 +68,75 @@ class PartiesTests(unittest.TestCase):
         self.assertEqual(self.parties[1]['type'], 'مدعي عليه')
 
 
+class PartiesDuplicateTests(unittest.TestCase):
+    """تكرار الأطراف بعد إرسال إعلان (15/11/2026).
+
+    صفحة الطلب فيها **جدولين**: «الاطراف» و«نتيجه الاعلان» — وصفوف الثاني
+    تبدأ باسم الطرف وبعمود «وسيله الاعلان» (مندوب/رسائل/هاتف…). فلو قُرئت
+    مع جدول الأطراف ⟵ يتكرّر نفس الشخص مرتين: سطر «مدعى عليه» وسطر «مندوب».
+    """
+
+    HTML = """
+    <table class="table table-striped table-bordered table-hover">
+      <thead class="thead-dark"><tr>
+        <th>الاسم</th><th>نوع الطرف</th><th>العنوان</th>
+      </tr></thead>
+      <tbody>
+        <tr onclick="showadd('160801')"><td>شركه الاتصالات المتنقله ش م ك</td>
+            <td>مدعى</td>
+            <td><button type="button" onclick="showadd('160801')">&#9660;</button></td></tr>
+        <tr onclick="showadd('380068')"><td>عبد الهادى محمد على المرى</td>
+            <td>مدعي عليه</td>
+            <td><button type="button" onclick="showadd('380068')">&#9660;</button></td></tr>
+      </tbody>
+    </table>
+    <table class="table table-striped table-bordered table-hover">
+      <thead class="thead-dark"><tr>
+        <th>الاسم</th><th>وسيله الاعلان</th><th>تاريخ الاعلان</th>
+        <th>تاريخ الجلسه</th><th>حاله الاعلان</th><th>سبب التعذر</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>عبد الهادى محمد على المرى</td><td>مندوب</td><td>15/11/2026</td>
+            <td>09/12/2026</td><td>تم</td><td>-</td></tr>
+      </tbody>
+    </table>"""
+
+    def test_result_row_is_not_a_party(self):
+        parties = ilann.parse_parties(self.HTML)
+        self.assertEqual(len(parties), 2)
+        self.assertEqual([p['type'] for p in parties], ['مدعى', 'مدعي عليه'])
+
+    def test_no_duplicated_party_name(self):
+        names = [p['name'] for p in ilann.parse_parties(self.HTML)]
+        self.assertEqual(len(names), len(set(names)), names)
+
+    def test_parties_keep_part_id(self):
+        parties = ilann.parse_parties(self.HTML)
+        self.assertEqual(parties[0]['part_id'], '160801')
+        self.assertEqual(parties[1]['part_id'], '380068')
+
+    def test_results_table_still_parsed(self):
+        rows = ilann.parse_results(self.HTML)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['means'], 'مندوب')
+        self.assertEqual(rows[0]['status'], 'تم')
+        self.assertEqual(rows[0]['name'], 'عبد الهادى محمد على المرى')
+
+    def test_frozen_page_still_two_parties(self):
+        self.assertEqual(len(ilann.parse_parties(_read('meeting_inform.html'))), 2)
+
+    def test_page_with_only_results_gives_no_parties(self):
+        only_results = self.HTML.split('</table>')[1] + '</table>'
+        self.assertEqual(ilann.parse_parties(only_results), [])
+
+    def test_fallback_when_header_text_changed(self):
+        """لو غيّر الموقع نص الرأس — نرجع لزرّ الطرف (showadd) بدل ما نفقد الأطراف."""
+        html = self.HTML.replace('<th>نوع الطرف</th>', '<th>صفة الخصم</th>')
+        parties = ilann.parse_parties(html)
+        self.assertEqual(len(parties), 2)
+        self.assertEqual(parties[0]['part_id'], '160801')
+
+
 class ResultsTests(unittest.TestCase):
     def test_empty_table_gives_no_rows(self):
         self.assertEqual(ilann.parse_results(_read('meeting_inform.html')), [])
@@ -154,6 +223,16 @@ class SendTests(unittest.TestCase):
     def setUp(self):
         self.form = ilann.parse_party_form(_read('party_form.html'))
         self.payload = ilann.build_payload(self.form, {})
+        # سجل التشخيص يروح لمجلد مؤقت — ما نلوّث سجل المستخدم
+        self._old_local = os.environ.get('LOCALAPPDATA')
+        os.environ['LOCALAPPDATA'] = tempfile.mkdtemp(prefix='ilann-test-')
+        self.addCleanup(self._restore_local)
+
+    def _restore_local(self):
+        if self._old_local is None:
+            os.environ.pop('LOCALAPPDATA', None)
+        else:
+            os.environ['LOCALAPPDATA'] = self._old_local
 
     def test_dry_run_does_not_post(self):
         posted = []
@@ -222,6 +301,241 @@ class SendTests(unittest.TestCase):
             self.assertEqual(res['code'], code)
             self.assertEqual(res['ok'], ok)
             self.assertEqual(res['message'], msg)
+
+
+class FieldLimitsTests(unittest.TestCase):
+    """حدود الحقول — SIRVER يرفض القيمة الطويلة بـORA-12899 (15/11/2026).
+
+    الموقع يقصّ الحقل في المتصفح (`maxlength`) — ونحاكي نفس السلوك.
+    """
+
+    def setUp(self):
+        self.form = ilann.parse_party_form(_read('party_form.html'))
+
+    def test_limits_read_from_the_form(self):
+        limits = self.form.get('limits') or {}
+        self.assertEqual(limits.get('ADRS_BUILDING_NO'), 5)
+        self.assertEqual(limits.get('ADRS_KASIMA'), 10)
+        self.assertEqual(limits.get('ADRS_BLOCK'), 4)
+        self.assertEqual(limits.get('ADDRNO'), 12)
+        self.assertEqual(limits.get('EIF_NOTE'), 150)
+
+    def test_payload_truncates_long_values(self):
+        values = {'ADRS_BUILDING_NO': 'برج برايم الطويل',   # 16 حرف
+                  'ADRS_KASIMA': 'طريق طويل جداً جداً',          # 18 حرف
+                  'ADDRNO': '999999999999999'}                  # 15 حرف
+        p = ilann.build_payload(self.form, values)
+        self.assertEqual(len(p['ADRS_BUILDING_NO']), 5)
+        self.assertEqual(len(p['ADRS_KASIMA']), 10)
+        self.assertEqual(len(p['ADDRNO']), 12)
+
+    def test_short_values_untouched(self):
+        p = ilann.build_payload(self.form, {'ADRS_BUILDING_NO': '36'})
+        self.assertEqual(p['ADRS_BUILDING_NO'], '36')
+
+    def test_truncate_helper(self):
+        self.assertEqual(ilann.truncate_field('ADRS_BUILDING_NO', 'abcdefgh'),
+                         'abcde')
+        self.assertEqual(ilann.truncate_field('ADRS_BUILDING_NO', 'abc'), 'abc')
+        self.assertEqual(ilann.truncate_field('ADRS_DESCR', 'x' * 90), 'x' * 90)
+
+    def test_limit_helper(self):
+        self.assertEqual(ilann.field_limit('ADRS_BUILDING_NO',
+                                           self.form.get('limits')), 5)
+        self.assertEqual(ilann.field_limit('ADRS_FLOOR', {}), 5)
+        self.assertIsNone(ilann.field_limit('ADRS_DESCR', {}))
+
+
+class OraTooLongTests(unittest.TestCase):
+    """رد ORA-12899 ⟵ رسالة واضحة: أي حقل وكم حرف وكم يسمح."""
+
+    ORA = ('<br /> <b>Warning</b>:  oci_execute(): ORA-12899: value too large for '
+           'column &quot;EXPRT&quot;.&quot;CONTACTS_ADRS&quot;.&quot;ADRS_BUILDING_NO&quot; '
+           '(actual: 9, maximum: 5) in '
+           '<b>C:\\Apache24\\htdocs\\includes\\insert_inform_detail.php</b> on line '
+           '<b>126</b><br /> 21')
+
+    def test_detect_column_and_lengths(self):
+        got = ilann._too_long_field(self.ORA)
+        self.assertIsNotNone(got)
+        self.assertEqual(got[0], 'ADRS_BUILDING_NO')
+        self.assertEqual(got[1], '9')
+        self.assertEqual(got[2], '5')
+
+    def test_generic_ora_detection(self):
+        got = ilann._ora_error(
+            'ORA-01400: ORA-01400: cannot insert NULL into ("EXPRT"."CONTACTS_ADRS"."ADDRNO")')
+        self.assertIsNotNone(got)
+        self.assertEqual(got[0], 'ORA-01400')
+        self.assertIn('فاضي', got[1])
+
+    def test_no_ora_means_none(self):
+        self.assertIsNone(ilann._ora_error('1'))
+        self.assertIsNone(ilann._ora_error(''))
+
+    def test_send_reports_too_long(self):
+        class Resp:
+            text = OraTooLongTests.ORA
+            status_code = 200
+
+        def fake_post(url, data=None, cookies=None, **kw):
+            return Resp()
+
+        import requests as _rq
+        old = _rq.post
+        _rq.post = fake_post
+        logged = []
+        old_log = ilann._log_send
+        ilann._log_send = lambda e: logged.append(e)
+        try:
+            form = ilann.parse_party_form(_read('party_form.html'))
+            payload = ilann.build_payload(form, {})
+            res = ilann.send_inform({}, payload, dry_run=False, caso_no='A2264206',
+                                    session_date='2026/11/19', session_time='10:30')
+        finally:
+            _rq.post = old
+            ilann._log_send = old_log
+        self.assertFalse(res['ok'])
+        self.assertEqual(res['code'], 'too_long')
+        self.assertIn('المبنى', res['message'])
+        self.assertIn('5', res['message'])
+        self.assertTrue(logged)
+
+
+class MeetingDateFormatTests(unittest.TestCase):
+    """صيغة تاريخ الجلسة — يyyy/mm/dd فقط هي اللي يقبلها السيرفر (15/11/2026)."""
+
+    def test_calendar_format_is_kept(self):
+        self.assertEqual(ilann.normalize_meeting_date('2026/11/17'), '2026/11/17')
+
+    def test_iso_is_converted(self):
+        self.assertEqual(ilann.normalize_meeting_date('2026-11-17'), '2026/11/17')
+
+    def test_day_first_is_converted(self):
+        self.assertEqual(ilann.normalize_meeting_date('17/11/2026'), '2026/11/17')
+
+    def test_oracle_is_converted(self):
+        self.assertEqual(ilann.normalize_meeting_date('17-NOV-26'), '2026/11/17')
+
+    def test_with_time_part(self):
+        self.assertEqual(ilann.normalize_meeting_date('2026/11/17 10:00'), '2026/11/17')
+
+    def test_empty(self):
+        self.assertEqual(ilann.normalize_meeting_date(''), '')
+        self.assertEqual(ilann.normalize_meeting_date(None), '')
+
+    def test_time_normalization(self):
+        self.assertEqual(ilann.normalize_meeting_time('10:00'), '10:00')
+        self.assertEqual(ilann.normalize_meeting_time('9:05'), '09:05')
+        self.assertEqual(ilann.normalize_meeting_time('10:00:00'), '10:00')
+        self.assertEqual(ilann.normalize_meeting_time(''), '')
+
+
+class MeetingContextTests(unittest.TestCase):
+    """سياق الجلسة — سبب فشل «طلب إعلان» الحقيقي (15/11/2026).
+
+    السبب الجذري (مقاس على السيرفر الحقيقي — رسائل PHP):
+      • `insert_inform_detail.php` يقرأ من **جلسة السيرفر**:
+        ECS_IN_REGNO_INFO (سطر 51) · ECS_MET_DATE (سطر 134) · ECS_MET_TIME (سطر 138)
+      • `basic_info_result.php` (سطر 21-22) هو اللي يكتب التاريخ والوقت في الجلسة
+        من `met_date` / `met_time`.
+      • البرنامج كان يرسل `met_date=''` `met_time=''` ⟵ الجلسة بلا تاريخ جلسة
+        ⟵ السيرفر يرد «4» (لا يجوز ادخال اعلان لجلسه سابقه) — حتى لو الجلسة قادمة.
+    """
+
+    def _capture(self, reply='1'):
+        calls = []
+
+        class Resp:
+            text = reply
+
+        def fake_post(url, data=None, cookies=None, **kw):
+            calls.append((url, data or {}))
+            return Resp()
+
+        import requests as _rq
+        old = _rq.post
+        _rq.post = fake_post
+        self.addCleanup(lambda: setattr(_rq, 'post', old))
+        return calls
+
+    def test_context_is_set_before_the_send(self):
+        calls = self._capture()
+        form = ilann.parse_party_form(_read('party_form.html'))
+        payload = ilann.build_payload(form, {})
+        res = ilann.send_inform({}, payload, dry_run=False, caso_no='A2264185',
+                                auto_no='262461650', session_date='2026/11/20',
+                                session_time='10:30')
+        self.assertTrue(res['ok'])
+        # أول طلب = ضبط سياق الجلسة (رقم الخبرة + تاريخ الجلسة + وقتها)
+        self.assertTrue(calls[0][0].endswith('/includes/basic_info_result.php'))
+        self.assertEqual(calls[0][1]['met_date'], '2026/11/20')
+        self.assertEqual(calls[0][1]['met_time'], '10:30')
+        self.assertEqual(calls[0][1]['description'], 'A2264185')
+        self.assertEqual(calls[0][1]['title'], 'A2264185')
+        # ثاني طلب = إعادة تحديد القضية (نفس «الملف الآلي» بالموقع)
+        self.assertTrue(calls[1][0].endswith('/includes/insert_showimg.php'))
+        self.assertEqual(calls[1][1]['task_id'], 'A2264185')
+        # آخر طلب = نقطة الإرسال
+        self.assertTrue(calls[-1][0].endswith('/includes/insert_inform_detail.php'))
+
+    def test_context_is_set_even_without_a_case_number(self):
+        """حتى بلا رقم خبرة نرسل التاريخ (لو موجود) — الجلسة هي المرجع."""
+        calls = self._capture()
+        form = ilann.parse_party_form(_read('party_form.html'))
+        payload = ilann.build_payload(form, {})
+        ilann.send_inform({}, payload, dry_run=False, session_date='2026/11/20',
+                          session_time='10:30')
+        self.assertTrue(calls[0][0].endswith('/includes/basic_info_result.php'))
+        self.assertEqual(calls[0][1]['met_date'], '2026/11/20')
+
+    def test_no_context_call_without_session_date(self):
+        """بدون تاريخ جلسة: ما نرسلش طلب ضبط السياق (ما عندنا قيمة نرسلها)."""
+        calls = self._capture()
+        form = ilann.parse_party_form(_read('party_form.html'))
+        payload = ilann.build_payload(form, {})
+        ilann.send_inform({}, payload, dry_run=False, caso_no='A2264185')
+        self.assertFalse(any('basic_info_result' in u for u, _ in calls))
+
+    def test_parse_reply_with_php_notices(self):
+        """رد فيه تحذيرات PHP قبل الكود ⟵ الكود هو آخر سطر."""
+        raw = ('Notice: Undefined index: ECS_MET_DATE in insert_inform_detail.php '
+               'on line 134\n\nNotice: Undefined index: ECS_MET_TIME on line 138\n4')
+        code, out = ilann._parse_send_response(raw)
+        self.assertEqual(code, '4')
+        self.assertEqual(out, raw)
+
+    def test_parse_reply_plain_and_html(self):
+        self.assertEqual(ilann._parse_send_response('1')[0], '1')
+        self.assertEqual(ilann._parse_send_response('<b>1</b>')[0], '1')
+        self.assertEqual(ilann._parse_send_response('')[0], '')
+        self.assertEqual(ilann._parse_send_response(' boom ')[0], '')
+
+    def test_unknown_reply_is_reported_as_unknown(self):
+        calls = self._capture(reply='<b>Warning</b>: something went wrong')
+        form = ilann.parse_party_form(_read('party_form.html'))
+        payload = ilann.build_payload(form, {})
+        res = ilann.send_inform({}, payload, dry_run=False, caso_no='A2264185',
+                                session_date='2026/11/20')
+        self.assertFalse(res['ok'])
+        self.assertEqual(res['code'], 'unknown')
+        self.assertTrue(res['raw'])
+
+    def test_send_failure_is_logged(self):
+        calls = self._capture(reply='4')
+        form = ilann.parse_party_form(_read('party_form.html'))
+        payload = ilann.build_payload(form, {})
+        logged = []
+        old_log = ilann._log_send
+        ilann._log_send = lambda entry: logged.append(entry)
+        try:
+            ilann.send_inform({}, payload, dry_run=False, caso_no='A2264185',
+                              session_date='2026/11/20', session_time='10:30')
+        finally:
+            ilann._log_send = old_log
+        self.assertTrue(logged)
+        self.assertIn('A2264185', logged[0])
+        self.assertIn('2026/11/20', logged[0])
 
 
 class FetchTests(unittest.TestCase):

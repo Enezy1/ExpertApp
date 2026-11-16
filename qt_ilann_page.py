@@ -69,6 +69,8 @@ SEND_MESSAGES = {
     '3': 'يوجد إعلان سابق لنفس الطرف في نفس الجلسة',
     '4': 'لا يجوز إدخال إعلان لجلسة سابقة',
     'err': 'ما نقدر نأكد إذا وصل الإعلان — حدّث النتائج قبل إعادة الإرسال.',
+    'unknown': 'تعذّر إرسال الإعلان — لم يتم الإرسال.',
+    'too_long': 'حقل أطول من المسموح بالنظام — قصّره وأعد الإرسال.',
 }
 
 #: شارات بطاقات الهوية — أيقونة دائرية: أخضر للجلسة (وقت/تاريخ) · كحلي لمعلومات القضية
@@ -639,10 +641,17 @@ class PartyForm(QWidget):
             ('ADRS_DESCR', 'الوصف'),
             ('MAIN_CNTD_TYPE_DESC', 'عنوان آخر'),
         )
+        limits = self.form.get('limits') or {}
         col = 2
         row = 0
         for name, label in addr_fields:
-            e = QLineEdit(ilann.clean_value(fields.get(name, '')))
+            # ⚠️ حدّ الحقل من نموذج النظام (`maxlength`) — الموقع يقصّها في المتصفح،
+            #    ولو أرسلنا قيمة أطول رفضها السيرفر بـORA-12899 (15/11/2026).
+            lim = ilann.field_limit(name, limits)
+            val = ilann.truncate_field(name, fields.get(name, ''), limits)
+            e = QLineEdit(val)
+            if lim:
+                e.setMaxLength(lim)
             e.setStyleSheet(_field_qss())
             e.setAlignment(th.ARIGHT)
             e.setAccessibleName(label)
@@ -1535,9 +1544,14 @@ class IlannDialog(QDialog):
         form = self._party_form.form if self._party_form else {}
         payload = ilann.build_payload(form, values)
         cookies = self.cookies
+        # ⚠️ التاريخ والوقت مطلوبين: السيرفر يقرأهما من **جلسته** (ECS_MET_DATE /
+        #    ECS_MET_TIME) ويرد «4» (جلسة سابقة) بدونهما — انظر ilann.set_meeting_context.
+        caso, auto = self.caso_no, self.auto_no
+        sdate, stime = self.session_date, self.session_time
 
         def work():
-            res = ilann.send_inform(cookies, payload, dry_run=False)
+            res = ilann.send_inform(cookies, payload, dry_run=False, caso_no=caso,
+                                    auto_no=auto, session_date=sdate, session_time=stime)
             self._emit(self._sent, res)
 
         threading.Thread(target=work, daemon=True).start()
@@ -1558,6 +1572,8 @@ class IlannDialog(QDialog):
             self.refresh(keep_outcome=True)
             return
         msg = SEND_MESSAGES.get(code) or 'تعذّر إرسال الإعلان — لم يتم الإرسال.'
+        if code in ('too_long', 'ora') and res.get('message'):
+            msg = res['message']  # رسالة السيرفر تحدّد الحقل والطول والحدّ
         self._set_state(msg, color=th.DANGER_TEXT)
 
     # ------------------------------------------------------------------
@@ -1573,7 +1589,9 @@ class IlannDialog(QDialog):
 
         def work():
             try:
-                data = ilann.fetch_page(cookies, caso, auto)
+                data = ilann.fetch_page(cookies, caso, auto,
+                                         session_date=self.session_date,
+                                         session_time=self.session_time)
             except Exception:
                 self._emit(self._failed, 'تعذّر الاتصال بنظام الخبراء')
                 return

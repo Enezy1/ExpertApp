@@ -101,6 +101,26 @@ class DialogBuildTests(unittest.TestCase):
         close = _buttons(self.dlg)['إغلاق']
         self.assertNotIsInstance(close, PrimaryButton)
 
+    def test_identity_cards_have_icon_badges(self):
+        """شكل البطاقة: شارة أيقونة دائرية لكل بطاقة — أخضر للجلسة · كحلي لمعلومات القضية."""
+        badges = self.dlg.findChildren(QFrame, 'icon_badge')
+        self.assertEqual(len(badges), 5)
+        styles = [b.styleSheet() for b in badges]
+        self.assertEqual(sum(qi.th.EMERALD_BG in s for s in styles), 2)
+        self.assertEqual(sum(qi.th.NAVY_TINT in s for s in styles), 3)
+
+    def test_identity_card_labels_unchanged(self):
+        """أسماء البطاقات ما تتغيّر — نفس التسميات الأصلية."""
+        texts = [w.text() for w in self.dlg.findChildren(QLabel)]
+        for label in ('رقم ملف الخبرة', 'رقم القضية', 'الرقم الآلي للقضية',
+                      'تاريخ الجلسة القادمة', 'وقت الجلسة القادمة'):
+            self.assertIn(label, texts)
+        self.assertNotIn('التقويم المقترح', texts)
+
+    def test_send_button_has_no_icon(self):
+        """زر «إرسال الإعلان» بدون أيقونة — الأيقونة ما لها علاقة بالإرسال (طلب العنزي 15/11/2026)."""
+        self.assertTrue(self.dlg.btn_send.icon().isNull())
+
     def test_results_table_filled(self):
         self.assertEqual(self.dlg.tbl_results.rowCount(), 2)
         self.assertEqual(self.dlg.tbl_results.item(0, 4).text(), 'تم')
