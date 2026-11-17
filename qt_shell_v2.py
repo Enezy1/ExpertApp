@@ -324,6 +324,11 @@ class Sidebar(QFrame):
         self.update_btn.setText("✅ جاهز — اضغط لإعادة التشغيل")
         self._style_update_btn(th.EMERALD)
 
+    def set_update_installing(self):
+        """التحديث نزل — الحين يستبدل البرنامج بمكانه ويعيد التشغيل."""
+        self.update_btn.setText("⬇️ جاري التثبيت… جاري إعادة التشغيل")
+        self._style_update_btn(th.SIDEBAR_ITEM_ACTIVE, enabled=False)
+
     def set_update_failed(self, new_ver):
         self.update_btn.setText(f"⚠️ تعذّر التحميل — أعد المحاولة ({new_ver})")
         self._style_update_btn("#B3261E")
@@ -632,11 +637,19 @@ class ExpertAppQt(QMainWindow):
         self.stack.setCurrentWidget(self.pages[key])
 
     def _fit_window_to_screen(self):
+        """
+        النافذة الرئيسية: مقاسها على الشاشة الفعلية (بعد زوم ويندوز).
+
+        ⚠️ الحدّ الأدنى (1080×660) ما يتجاوز الشاشة أبداً — على جهاز زوم
+        150% الشاشة المنطقية تصغر (1366×768 ⟵ 911×512) وكان الحدّ الأدنى
+        660 يفرض نافذة أطول من الشاشة ⟵ الشريط السفلي يطلع براها.
+        """
         screen = self.screen() or QApplication.primaryScreen()
         geo = screen.availableGeometry()
         target_w = min(1280, int(geo.width() * 0.92))
         target_h = min(800, int(geo.height() * 0.88))
-        min_w, min_h = 1080, 660
+        min_w = min(1080, geo.width())
+        min_h = min(660, geo.height())
         target_w = max(target_w, min(min_w, geo.width()))
         target_h = max(target_h, min(min_h, geo.height()))
         x = geo.x() + max(0, (geo.width() - target_w) // 2)

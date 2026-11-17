@@ -77,6 +77,21 @@ net_timeouts.install()
 import case_schema
 case_schema.install()
 
+# ===== الزوم (DPI) — قبل إنشاء QApplication =====
+# ويندوز يعرض الشاشة بنسبة 125%/150%/175% — Qt يقيس النوافذ بمقاس **منطقي**
+# (بعد الزوم). التقريب الافتراضي (Round) يقرّب 1.5 ⟵ 2 فتتخبّى الواجهة
+# وتقصّ محتوى الشاشة (ومنها أزرار شريط الإجراءات). PassThrough يبقي
+# النسبة بالضبط ⟵ المقاسات اللي تحسبها qt_fit تنطبق على الشاشة كما هي.
+def _setup_dpi():
+    try:
+        from PyQt6.QtCore import Qt as _Qt
+        from PyQt6.QtGui import QGuiApplication as _QGuiApp
+        _QGuiApp.setHighDpiScaleFactorRoundingPolicy(
+            _Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+    except Exception:
+        pass
+
+
 # ===== شاشة ترحيب سريعة =====
 # تظهر فورًا قبل الاستيرادات الثقيلة (requests/api/Qt المتبقي) عشان المستخدم
 # يعرف إن البرنامج يشتغل وما تعلّق، وتُغلق لما تظهر شاشة الدخول.
@@ -87,6 +102,7 @@ _QAPP = None  # مرجع دائم لـQApplication (بدونه يُحذف عند
 def _show_splash():
     global _SPLASH, _QAPP
     try:
+        _setup_dpi()
         from PyQt6.QtCore import Qt as _Qt
         from PyQt6.QtWidgets import (QApplication as _QApp, QWidget as _QW, QVBoxLayout as _QV,
                                      QLabel as _QL, QProgressBar as _QP, QFrame as _QF)
@@ -655,6 +671,7 @@ from PyQt6.QtWidgets import (
     QPushButton, QMessageBox
 )
 import qt_theme as th
+import qt_fit
 from qt_widgets import PrimaryButton
 
 
@@ -756,6 +773,18 @@ def _on_update_downloaded(path, kind):
     if path:
         _update_state['path'], _update_state['kind'] = path, kind
         if sb:
+            sb.set_update_installing()
+        # ⚠️ تطبيق فوري: النسخة الجديدة **تستبدل** الحالية بمكانها (ما
+        #    نسخة ثانية) والبرنامج يعيد التشغيل — نفس سلوك «مينيماكس
+        #    ديسكتوب»: ضغطة وحدة ← تحميل صامت ← النسخة الجديدة تشتغل.
+        import updater
+        try:
+            applied = updater.apply_update(path, kind)
+        except Exception:
+            applied = False
+        if not applied and sb:
+            # ما قدرنا نطبّق (البرنامج مشغّل من الكود المصدري) — نخلّي
+            # الزر «جاهز» ونعيد المحاولة بضغطة.
             sb.set_update_ready()
     elif sb:
         sb.set_update_failed(_update_state['ver'])
@@ -766,7 +795,11 @@ class LoginScreenQt(QWidget):
         super().__init__()
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.setWindowTitle("نظام جلسات الخبراء")
-        self.setFixedSize(520, 830)
+        # ⚠️ مقاس شاشة الدخول: ما يتجاوز حجم الشاشة أبداً (جهاز فيه زوم
+        #    150% ⟵ الشاشة المنطقية تصغر) — وإلا طلع زر الدخول برا الشاشة.
+        #    (المحتوى داخل منطقة تمرير ⟵ الزر يوصل دائماً — qt_login_ui.py)
+        _w, _h = qt_fit.fit_size(self, prefer=(520, 830), minimum=(420, 560), margin=4)
+        self.setFixedSize(_w, _h)
         # بدون إطار ويندوز الأبيض — شريط العنوان مرسوم داخل qt_login_ui.TitleBar
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
         try:
@@ -967,6 +1000,7 @@ if __name__ == "__main__":
                 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("ExpertDesk.ExpertApp")
             except Exception:
                 pass
+        _setup_dpi()
         qt_app = QApplication.instance() or QApplication(sys.argv)
         qt_app.setWindowIcon(th.load_window_icon())
         # قاعدة ثابتة: كل الواجهة RTL بالكامل — نضبطها على مستوى التطبيق نفسه

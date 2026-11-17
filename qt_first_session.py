@@ -542,12 +542,64 @@ class FirstSessionControllerQt:
             self.secondment_by_original = by_original
 
     def _sync_calendar_silent(self, date_raw, time_str):
-        try:
+        """
+        يضيف موعد الجلسة لتقويم iCloud — **بخلفية** (ما تجمّد الواجهة).
+
+        ⚠️ ليش بالخلفية: شبكة الدوام قد تحجب Apple ⟵ الطلب يتأخر (مهلة
+        8 ث + محاولة عبر الوسيط) وواجهة تسجيل الجلسة كانت تتجمد.
+
+        ⚠️ ليش "صامت": هذا المسار **تلقائي** (تسجيل الجلسة بالنظام) — ما
+        نبي نقطع المستخدم برسالة كل مرة تفشل المزامنة. الفشل يطلع
+        كتنبيه خفيف (toast) **نصي فقط** — بلا أزرار. أما المسار اليدوي
+        (زر «إضافة الجلسة للتقويم» بصفحة الجلسات) فيعرض رسالة نصية
+        واحدة بنفس المعنى.
+        """
+        def work():
             from icloud_calendar import has_credentials, add_calendar_event
-            if has_credentials():
-                summary = get_case_parties_summary(self.caso_no, self.cookies, self.current_user)
-                start_dt = datetime.strptime(f"{date_raw} {time_str}", "%Y/%m/%d %H:%M")
-                add_calendar_event(f"{summary} - {self.caso_no}", start_dt)
+            if not has_credentials():
+                # ما فيه حساب مربوط ⟵ ما داعينا نزعج المستخدم
+                return (True, None)
+            summary = get_case_parties_summary(self.caso_no, self.cookies, self.current_user)
+            start_dt = datetime.strptime(f"{date_raw} {time_str}", "%Y/%m/%d %H:%M")
+            return add_calendar_event(f"{summary} - {self.caso_no}", start_dt)
+
+        def on_ok(result):
+            try:
+                ok, err = result if isinstance(result, (tuple, list)) else (False, str(result))
+            except Exception:
+                ok, err = False, ''
+            if ok:
+                return
+            self._calendar_sync_failed(str(err))
+
+        def on_fail(msg):
+            self._calendar_sync_failed(str(msg))
+
+        try:
+            from qt_extraction import run_in_background
+            run_in_background(work, on_ok, on_fail)
+        except Exception:
+            pass
+
+    def _calendar_sync_failed(self, err):
+        """
+        فشل المزامنة التلقائية — **تنبيه نصي خفيف** (مش رسالة مقاطعة،
+        وبلا أي زر: تجاوز البورت تلقائي بالكامل).
+        """
+        try:
+            from qt_extraction import show_toast
+            msg = str(err or '').strip()
+            if not msg:
+                try:
+                    from icloud_calendar import BLOCKED_MESSAGE
+                    msg = BLOCKED_MESSAGE
+                except Exception:
+                    msg = 'خدمة iCloud محجوبة في شبكة الدوام (البورت مقفل).'
+            show_toast(
+                "ما انضافت الجلسة للتقويم",
+                msg[:200],
+                kind="warning",
+                duration_ms=9000)
         except Exception:
             pass
 
@@ -605,11 +657,11 @@ class FirstSessionControllerQt:
                         f"يدويًا من صفحة الجلسات لو لم تُسجَّل.")
                 elif result == '1':
                     try:
-                        from icloud_calendar import has_credentials, add_calendar_event
+                        from icloud_calendar import has_credentials
                         if has_credentials():
-                            summary = get_case_parties_summary(self.caso_no, self.cookies, self.current_user)
-                            start_dt = datetime.strptime(f"{new_date_raw} {new_time}", "%Y/%m/%d %H:%M")
-                            add_calendar_event(f"{summary} - {self.caso_no}", start_dt)
+                            # الإضافة **بخلفية** — network call ما تتجمّد
+                            # فيها واجهة تسجيل الجلسة.
+                            self._sync_calendar_silent(new_date_raw, new_time)
                         else:
                             QMessageBox.warning(owner, "تنبيه",
                                 "لم تُضَف الجلسة لتقويم آيفونك — لا يوجد حساب iCloud مربوط.\n\n"

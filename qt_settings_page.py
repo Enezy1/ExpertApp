@@ -1020,6 +1020,17 @@ class SettingsPage(QWidget):
         lay.addSpacing(4)
         lay.addLayout(row)
 
+        # رقم النسخة: يُقرأ **تلقائياً** من ملف النسخة بالمجلد (خصائص EXE)
+        # — ما يحتاج الأدمن يكتبه يدوياً (كان يغلط أحياناً ⟵ ما تعرف
+        # الأجهزة إن فيه نسخة جديدة).
+        ver_hint = QLabel("رقم النسخة يُقرأ تلقائياً من ملف البرنامج بالمجلد "
+                          "(لو ما انقرأ — اكتبه يدوياً).")
+        ver_hint.setWordWrap(True)
+        ver_hint.setStyleSheet(f"color:{th.TEXT_MUTED}; font-size:10px; border:none;")
+        ver_hint.setAlignment(Qt.AlignmentFlag.AlignRight)
+        lay.addWidget(ver_hint)
+        self._refresh_detected_version()
+
         # المصدر الثاني: رابط أونلاين (يُجرّب بعد الداخلي)
         import updater as _updater
         row2 = QHBoxLayout()
@@ -1032,6 +1043,26 @@ class SettingsPage(QWidget):
         lay.addLayout(row2)
         return card
 
+    def _refresh_detected_version(self):
+        """
+        يحدّث خانة رقم النسخة بالرقم المقروء **تلقائياً** من ملف البرنامج
+        الموجود بمجلد التحديثات. يرجع الرقم المكتشف ('' لو ما انقرأ).
+        """
+        try:
+            import updater as _up
+            path = self.update_folder_entry.text().strip()
+            # مهلة قصيرة (ثانيتين): المجلد على شبكة الدوام — لو مو متاح
+            # ما نجمّد صفحة الإعدادات أكثر من ذين.
+            detected = _up.detect_version(path, timeout=2) if path else ''
+        except Exception:
+            detected = ''
+        if detected:
+            try:
+                self.update_version_entry.setText(detected)
+            except Exception:
+                pass
+        return detected
+
     def _save_update_folder(self):
         # حماية مضاعفة: البطاقة أصلاً لا تُبنى إلا للمالك، ونتحقق هنا مرة ثانية
         if not main1_access.is_owner(self.current_user, get_current_account()):
@@ -1040,7 +1071,10 @@ class SettingsPage(QWidget):
         if not path:
             QMessageBox.warning(self, "تنبيه", "يرجى كتابة مسار مجلد التحديثات أولاً")
             return
-        version = self.update_version_entry.text().strip()
+        # ⚠️ رقم النسخة: المقروء تلقائياً من ملف النسخة بالمجلد هو الصح
+        #    (اليدوي بس احتياط لو ما انقرأ).
+        detected = self._refresh_detected_version()
+        version = detected or self.update_version_entry.text().strip()
         if not re.fullmatch(r"\d+\.\d+\.\d+", version):
             QMessageBox.warning(self, "تنبيه", "صيغة رقم النسخة غير صحيحة — استخدم الشكل 1.0.2")
             return
@@ -1054,10 +1088,11 @@ class SettingsPage(QWidget):
         ok, err = updater.publish_app_version(path, version, online_url=online)
         QApplication.restoreOverrideCursor()
         if ok:
-            QMessageBox.information(self, "✅ تم", "تم حفظ المصدرين ونشر رقم النسخة للسحابة")
+            QMessageBox.information(self, "✅ تم",
+                                    f"تم حفظ المصدرين ونشر رقم النسخة ({th.ltr(version)}) للسحابة")
         else:
             QMessageBox.critical(self, "❌ فشل النشر",
-                f"تم حفظ المسار محليًا لكن تعذر رفعه للسحابة:\n\n{th.ltr(err)}")
+                                f"تم حفظ المسار محليًا لكن تعذر رفعه للسحابة:\n\n{th.ltr(err)}")
 
     def _open_access_manager(self):
         from qt_main1_access_dialog import open_main1_access_dialog

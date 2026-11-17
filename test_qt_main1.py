@@ -311,5 +311,62 @@ class PreviewMergedTests(unittest.TestCase):
         self.assertTrue(os.path.isdir(d))
 
 
+class LabelReferralDateTests(unittest.TestCase):
+    """الملصق يعرض «تاريخ الإحالة» بدل «تاريخ الحكم» (18/11/2026).
+
+    طلب العنزي: تاريخ الحكم مو مهم للخبير — واللي يبيه في الملصق هو
+    «تاريخ إحالة رئيس القسم» (نفس حقل النموذج `reg_date_r`).
+    """
+
+    def _fields(self, **extra):
+        values = {'ref': 'A2262424',
+                  'name_c': 'النيابة العامة',
+                  'name_p': 'النباية العامة',
+                  'reg_date_r': '18/11/2026',
+                  'courtdate': '14/10/2025',
+                  'expert_session_date': '25/11/2026',
+                  'expr_name1': 'محمد العنزي'}
+        values.update(extra)
+        return m1._label_fields_from_values(values, 'A2262424')
+
+    def test_row_label_is_referral_date(self):
+        labels = [k for k, _ in self._fields()]
+        self.assertIn('تاريخ الإحالة', labels)
+        self.assertNotIn('تاريخ الحكم', labels)
+
+    def test_value_is_referral_date(self):
+        fields = dict(self._fields())
+        self.assertEqual(fields['تاريخ الإحالة'], '18/11/2026')
+
+    def test_judgment_date_not_shown(self):
+        """تاريخ الحكم ما عاد يطلع بالملصق."""
+        fields = dict(self._fields())
+        self.assertNotIn('14/10/2025', list(fields.values()))
+
+    def test_iso_referral_date_normalized(self):
+        """تاريخ النظام (YYYY-MM-DD) ⟵ يطلع DD/MM/YYYY زي باقي تواريخ الملصق."""
+        fields = dict(self._fields(reg_date_r='2026-11-18'))
+        self.assertEqual(fields['تاريخ الإحالة'], '18/11/2026')
+
+    def test_empty_referral_date_is_dash(self):
+        """فارغ ⟵ «—» بالملصق (مو فراغ صامت)."""
+        fields = dict(self._fields(reg_date_r=''))
+        self.assertEqual(fields['تاريخ الإحالة'], '')
+        html = m1._label_rows_html(self._fields(reg_date_r=''))
+        self.assertIn('تاريخ الإحالة', html)
+        self.assertIn('—', html)
+
+    def test_lookup_case_fills_referral_date_from_local(self):
+        """نافذة دمج الملصقات ⟵ تاريخ الإحالة من `received_date` المحلي."""
+        page = _make_page()
+        cached = {'autocase_no': '262208250', 'received_date': '2026-11-10',
+                  'plaintiffs': ['النيابة العامة'], 'defendants': ['النباية العامة']}
+        with mock.patch.object(m1.case_db, 'get_case', return_value=cached), \
+                mock.patch.object(m1, 'get_case_type', return_value=''), \
+                mock.patch.object(m1, 'get_experts', return_value=[]):
+            result, _, _ = page._lookup_case('A2262424', {'ref': 'A2262424'})
+        self.assertEqual(result.get('reg_date_r'), '10/11/2026')
+
+
 if __name__ == '__main__':
     unittest.main()

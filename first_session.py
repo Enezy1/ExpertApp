@@ -22,6 +22,7 @@
     تفترض ساعة حضور ثابتة 12:00م بدل ذكر يوم/تاريخ الجلسة الجديدة.
 """
 import os
+import threading
 import customtkinter as ctk
 from tkinter import messagebox
 from datetime import datetime, timedelta
@@ -681,14 +682,31 @@ class FirstSessionWindow(ctk.CTkToplevel):
         self._route_after_upcoming()
 
     def _sync_calendar_silent(self, date_raw, time_str):
-        """يضيف موعد الجلسة لتقويم iCloud لو الحساب مربوط (بصمت عند الفشل)"""
-        try:
-            from icloud_calendar import has_credentials, add_calendar_event
-            if has_credentials():
+        """
+        يضيف موعد الجلسة لتقويم iCloud لو الحساب مربوط — **بالخلفية**.
+
+        ⚠️ ليش بالخلفية (17/11/2026 — مهمة㉓): طلب iCloud كان ينفَّذ
+        **مباشرة على خيط الواجهة** ⟵ ومهلة الشبكة (8 ث مباشرة + محاولة
+        الوسيط) كانت تجمّد نافذة المحضر كل ثواني. الآن الشغل كله (جلب
+        أسماء الأطراف + الإضافة) على خيط منفصل، والواجهة ترجع فوراً.
+
+        الفشل يبقى **بصمت** (نفس سلوك هذه النافذة الأصلي) — ما نعرض
+        رسالة مقاطعة أثناء إصدار المحضر.
+        """
+        def work():
+            try:
+                from icloud_calendar import has_credentials, add_calendar_event
+                if not has_credentials():
+                    return
                 from api import get_case_parties_summary
                 summary = get_case_parties_summary(self.caso_no, self.cookies, self.current_user)
                 start_dt = datetime.strptime(f"{date_raw} {time_str}", "%Y/%m/%d %H:%M")
                 add_calendar_event(f"{summary} - {self.caso_no}", start_dt)
+            except Exception:
+                pass
+
+        try:
+            threading.Thread(target=work, daemon=True).start()
         except Exception:
             pass
 
@@ -949,14 +967,15 @@ class FirstSessionWindow(ctk.CTkToplevel):
                 elif result == '1':
                     # نجح التسجيل بالنظام — ندفع الموعد لتقويم iCloud لو
                     # الخبير مربوط حسابه. عدم الربط من الأساس يستحق
-                    # تنبيهًا واضحًا (مب فشل شبكة عابر يُتجاهل بصمت)
+                    # تنبيهًا واضحًا (مب فشل شبكة عابر يُتجاهل بصمت).
+                    # ⚠️ الطلب نفسه يروح **للخلفية** (مهمة㉓) — كان
+                    # يجمّد نافذة المحضر مدة مهلة الشبكة.
                     try:
-                        from icloud_calendar import has_credentials, add_calendar_event
+                        from icloud_calendar import has_credentials
                         if has_credentials():
-                            from api import get_case_parties_summary
-                            summary = get_case_parties_summary(self.caso_no, self.cookies, self.current_user)
-                            start_dt = datetime.strptime(f"{new_date_raw} {new_time}", "%Y/%m/%d %H:%M")
-                            add_calendar_event(f"{summary} - {self.caso_no}", start_dt)
+                            # ⚠️ الطلب يروح للخلفية — ما يجمّد الواجهة
+                            # (فحص الحساب فوقه محلي — قراءة ملف).
+                            self._sync_calendar_silent(new_date_raw, new_time)
                         else:
                             messagebox.showwarning(
                                 "⚠️ تنبيه",

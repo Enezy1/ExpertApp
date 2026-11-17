@@ -4,7 +4,7 @@ from PyQt6.QtCore import Qt, QPointF, QRectF
 from PyQt6.QtGui import (QColor, QLinearGradient, QRadialGradient, QPainter, QPen, QBrush,
                          QPolygonF, QFont)
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QFrame,
-                             QPushButton)
+                             QPushButton, QScrollArea)
 
 import qt_theme as th
 
@@ -332,7 +332,19 @@ def build_login_ui(screen, creds, other_accounts):
     screen._title_bar = TitleBar(screen, screen.windowTitle())
     screen._title_bar.setGeometry(0, 0, screen.width(), TitleBar.HEIGHT)
     screen._title_bar.raise_()
-    outer = QVBoxLayout(screen)
+    # ⚠️ المحتوى داخل منطقة تمرير: محتوى الدخول (~710px) ما fit على شاشة
+    #    قصيرة (زوم 150% ⟵ 1366×768 تصير 911×512 منطقية) — وكان زر
+    #    «تسجيل الدخول» يطلع برا الشاشة. التمرير يخلّيه **موصول دائماً**.
+    scroll = QScrollArea(screen)
+    scroll.setWidgetResizable(True)
+    scroll.setFrameShape(QFrame.Shape.NoFrame)
+    scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    scroll.setStyleSheet(
+        "QScrollArea { background:transparent; border:none; }"
+        "QScrollArea > QWidget > QWidget { background:transparent; }")
+    content = QWidget()
+    content.setStyleSheet("background:transparent;")
+    outer = QVBoxLayout(content)
     outer.setContentsMargins(40, TitleBar.HEIGHT + 22, 40, 22)
     outer.setSpacing(0)
 
@@ -467,3 +479,10 @@ def build_login_ui(screen, creds, other_accounts):
     foot.addStretch()
     foot.addWidget(safe)
     outer.addLayout(foot)
+
+    # --- نركّب المحتوى داخل منطقة التمرير ---
+    scroll.setWidget(content)
+    root = QVBoxLayout(screen)
+    root.setContentsMargins(0, 0, 0, 0)
+    root.setSpacing(0)
+    root.addWidget(scroll)

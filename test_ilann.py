@@ -738,6 +738,77 @@ class NetworkErrorTests(unittest.TestCase):
         self.assertEqual(out['reason'], 'no_data')
 
 
+class CaseFallbackTests(unittest.TestCase):
+    """القراءة البديلة — الجلسة **المنقضية** (18/11/2026).
+
+    السبب: نظام الخبراء يقرأ تاريخ الجلسة من جلسته (ECS_MET_DATE) — ولو ما
+    ضبطه لجلسة منقضية، ما ترجع «نتيجة الإعلان» لها. ⟵ نعيد القراءة بدون
+    تاريخ الجلسة (عرض على مستوى القضية) والنتيجة فيها عمود «تاريخ الجلسة».
+    """
+
+    RESULTS_HTML = (
+        '<html><body><table><thead><tr>'
+        '<th>الاسم</th><th>وسيله الاعلان</th><th>تاريخ الاعلان</th>'
+        '<th>تاريخ الجلسه</th><th>حاله الاعلان</th><th>سبب التعذر</th>'
+        '</tr></thead><tbody>'
+        '<tr><td>شركه الاتصالات المتنقله ش م ك</td><td>مندوب</td>'
+        '<td>10/11/2026</td><td>10/11/2026</td><td>تم</td><td></td></tr>'
+        '</tbody></table></body></html>'
+    )
+
+    def _run(self, pages, **kw):
+        import requests as _rq
+        oldp, oldg = _rq.post, _rq.get
+        seen = {'gets': 0}
+
+        class Resp:
+            def __init__(self, text):
+                self.text = text
+
+        def fake_post(url, data=None, cookies=None, **kw2):
+            return Resp('1')
+
+        def fake_get(url, cookies=None, **kw2):
+            i = min(seen['gets'], len(pages) - 1)
+            seen['gets'] += 1
+            return Resp(pages[i])
+
+        _rq.post, _rq.get = fake_post, fake_get
+        try:
+            out = ilann.fetch_page({}, 'A2264212', '260668600', **kw)
+        finally:
+            _rq.post, _rq.get = oldp, oldg
+        return out, seen
+
+    def test_fallback_retries_without_session_date(self):
+        """الجلسة المنقضية بلا نتائج ⟵ إعادة قراءة على مستوى القضية."""
+        out, seen = self._run([_read('meeting_inform.html'), self.RESULTS_HTML],
+                              session_date='2026/11/10', session_time='10:30',
+                              case_fallback=True)
+        self.assertEqual(seen['gets'], 2)
+        self.assertTrue(out['ok'])
+        self.assertTrue(out.get('case_level'))
+        self.assertEqual(len(out['results']), 1)
+        self.assertEqual(out['results'][0]['status'], 'تم')
+
+    def test_no_fallback_without_the_flag(self):
+        """الجلسة القادمة ⟵ ما نعيد القراءة (طلب واحد بس)."""
+        out, seen = self._run([_read('meeting_inform.html'), self.RESULTS_HTML],
+                              session_date='2026/11/10', session_time='10:30')
+        self.assertEqual(seen['gets'], 1)
+        self.assertFalse(out.get('case_level'))
+        self.assertEqual(out['results'], [])
+
+    def test_fallback_keeps_original_error(self):
+        """لو ما فيه بيانات حتى على مستوى القضية ⟵ نُبقي الخطأ الأصلي."""
+        out, seen = self._run([_read('meeting_inform_empty.html'),
+                               _read('meeting_inform_empty.html')],
+                              session_date='2026/11/10', case_fallback=True)
+        self.assertFalse(out['ok'])
+        self.assertEqual(out['reason'], 'no_data')
+        self.assertFalse(out.get('case_level'))
+
+
 class DocxTests(unittest.TestCase):
     def test_generates_word_file(self):
         with tempfile.TemporaryDirectory() as tmp:

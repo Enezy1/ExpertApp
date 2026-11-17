@@ -50,6 +50,13 @@ for pkg in [
     tmp_ret = collect_all(pkg)
     datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
+# حزمتا iCalendar/CalDAV فيهما مجلد tests كامل (مئات الموديولات).
+# collect_all كان يسحبها كـhidden imports ⟵ وقت تحليل طويل + استهلاك ذاكرة
+# كبير (Qkits) + حجم EXE زائد بلا أي فايدة (البرنامج ما يستورد tests أبداً).
+for _pkg in ('icalendar', 'caldav'):
+    hiddenimports = [m for m in hiddenimports
+                     if not (m == _pkg + '.tests' or m.startswith(_pkg + '.tests.'))]
+
 import os
 if os.path.isdir('fonts'):
     datas += [('fonts', 'fonts')]
@@ -74,6 +81,8 @@ hiddenimports += ['case_workspace', 'report_pipeline', 'secret_store']
 hiddenimports += ['case_facts', 'report_playbooks', 'report_compose', 'report_audit', 'report_v3']
 OCR_EXCLUDES = ['torch', 'scipy', 'pandas', 'sympy', 'onnx', 'onnxruntime.transformers', 'onnxruntime.tools',
                 'onnxruntime.quantization',
+                # اختبارات المكتبات — ما يحتاجها البرنامج (ترفع وقت التحليل والذاكرة)
+                'icalendar.tests', 'caldav.tests',
                 # استيرادات اختيارية لمكتبات أخرى (PIL/fsspec/sentry…) — البرنامج لا يستخدمها
                 'pyarrow', 'grpc', 'hf_xet', 'huggingface_hub']
 

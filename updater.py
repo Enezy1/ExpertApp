@@ -113,12 +113,18 @@ def publish_app_version(folder_path, version=None, online_url=None, timeout=10):
       - الصف 1 (id=1): مسار المجلد الداخلي على الشبكة (أو رابط، للقبول).
       - الصف 3 (id=3): رابط التحديث الأونلاين.
     رقم النسخة (version) يُرفع بالصف 1 (وبالصف 3 لو موجود).
+
+    ⚠️ رقم النسخة **تلقائي**: يُقرأ من ملف النسخة نفسه بمجلد التحديثات
+    (خصائص EXE) — هذا هو الرقم الصح. الرقم اليدوي (لو انكتب) يُستعمل بس
+    إذا تعذّرت القراءة التلقائية.
     ⚠️ الصف 2 مخصّص لمزوّدات الذكاء الاصطناعي (provider_sync) — ما نكتب فيه.
     يستدعيها الأدمن فقط من صفحة الإعدادات. يرجّع (نجح: bool, نص خطأ أو None).
     """
-    version = version or config.APP_VERSION
     folder_path = (folder_path or '').strip()
     online_url = (online_url or '').strip()
+    manual = (version or '').strip()
+    detected = detect_version(folder_path)
+    version = detected or manual or config.APP_VERSION
     try:
         # الصف 1 — المصدر الداخلي + رقم النسخة
         r = requests.post(
@@ -300,6 +306,29 @@ def _latest_exe(folder_path):
     return _pick_program_exe(folder_path)
 
 
+def detect_version(folder_path, timeout=4):
+    """
+    رقم نسخة البرنامج الموجود بمجلد التحديثات — **تلقائي** (من خصائص ملف
+    EXE، بدون تشغيله). يرجع '' لو ما قدرنا نعرفه.
+
+    ⚠️ ليش مهم: رقم النسخة كان **يُكتب يدوياً** من الأدمن ⟵ أي خطأ (أو
+    نسى) يخلّي الأجهزة ما تعرف إن فيه نسخة جديدة. الحين الرقم يقرأ من
+    ملف النسخة نفسه — تلقائي ومطابق دائماً.
+    ⚠️ timeout: مهلة فحص الوصول للمجلد (شبكة الدوام ممكن تتأخر) — خلّها
+    قصيرة لما يناديها من الواجهة.
+    """
+    try:
+        if not folder_path or not _path_reachable(folder_path, timeout):
+            return ''
+        exe = _pick_program_exe(folder_path)
+        if not exe:
+            return ''
+        return _exe_file_version(exe) or ''
+    except Exception as e:
+        print(f"detect_version ERROR: {e}")
+        return ''
+
+
 def _path_reachable(path, timeout=4):
     "os.path.isdir بمهلة قصيرة — مسارات الشبكة غير المتاحة قد تعلّق عشرات الثواني"
     result = {'ok': False}
@@ -474,6 +503,9 @@ def _download_file(url, name=None, progress=None, timeout=120):
                             raise
                         except Exception:
                             pass
+            # ⚠️ ملف ناقص = نسخة مكسورة ⟵ ما نستبدل بها البرنامج الحالي.
+            if total and done != total:
+                raise IOError(f'الملف النازل ناقص ({done} من {total} بايت)')
         return local
     except Exception as e:
         print(f"_download_file ERROR: {e}")
@@ -553,10 +585,27 @@ def try_download_update(folder_path):
 
 # ---------- التطبيق ----------
 
-def _backup_current_exe(current_exe):
-    """نسخة احتياطية من EXE الحالي (ترجع '' لو فشلت)."""
+def exe_path():
+    """مسار البرنامج المشغّل (EXE) — نص فاضي لو مشغّل من الكود المصدري."""
+    if not getattr(sys, 'frozen', False):
+        return ''
     try:
-        bak = current_exe + '.bak'
+        return os.path.abspath(sys.executable)
+    except Exception:
+        return ''
+
+
+def _backup_current_exe(current_exe):
+    """
+    نسخة احتياطية من EXE الحالي — **بمجلد مؤقت** (مو بمجلد البرنامج!).
+
+    ⚠️ سبب التغيير: النسخة الاحتياطية كانت تنحفظ جنب البرنامج
+    (ExpertApp.exe.bak) وتبقى للأبد ⟵ كانت هي «النسخة الثانية» اللي
+    يشوفها الخبير بمجلد البرنامج. الآن تنحفظ مؤقتاً وتُحذف بعد نجاح النسخ.
+    """
+    try:
+        bak_dir = tempfile.mkdtemp(prefix='ExpertAppUpdate_Bak_')
+        bak = os.path.join(bak_dir, os.path.basename(current_exe) + '.bak')
         shutil.copy2(current_exe, bak)
         return bak
     except Exception:
@@ -565,41 +614,60 @@ def _backup_current_exe(current_exe):
 
 def apply_update(new_exe_path, kind='program'):
     """
-    يطبّق التحديث:
-      - 'program':   سكربت batch ينتظر إغلاق البرنامج، يستبدل EXE الحالي
-                     بالجديد (مع استرجاع النسخة القديمة لو فشل النسخ)،
-                     ويعيد التشغيل. يشغّله منفصلًا ويُنهي البرنامج الحالي.
-      - 'installer': يشغّل المثبّت (البرنامج يخرج قبلها) — ما نبدّل البرنامج
-                     بمثبّت أبداً.
+    يطبّق التحديث **بمكانه** — ما ينسخ نسخة ثانية أبداً:
+
+      - 'program':   يستبدل EXE المشغّل بالجديد (نسخة احتياطية بالمجلد
+                     المؤقت تُحذف بعد النجاح، والقديمة الاحتياطية من
+                     نسخ سابقة تُنظّف)، ثم يعيد تشغيل **نفس المسار**
+                     ⟵ اختصارات المستخدم وقائمة ابدأ تبقى على النسخة الجديدة.
+      - 'installer': يشغّل المثبّت **بنفس مجلد البرنامج** (/DIR=...) ⟵
+                     Inno Setup ينصّب فوق النسخة القديمة (يحذفها ويزرع
+                     الجديدة بنفس المكان) بدل ما ينصّب نسخة ثانية بمكان
+                     ثاني، وبعدها يعيد تشغيل **نفس المسار**.
+
+    ⚠️ سبب التغيير (المبلَّغ 17/11/2026): الكود القديم كان يشغّل المثبّت
+    بدون تحديد المجلد ⟵ كان ينصّب نسخة ** ثانية** بمكان ثاني، ويبقى
+    البرنامج القديم شغّالاً (فالنسخة ما تتغيّر). الآن الاستبدال **دائماً**
+    بمكان النسخة الحالية.
+
     يعمل فقط من نسخة EXE المبنية (sys.frozen) — من الكود المصدري لا يفعل شي.
     """
     if not getattr(sys, 'frozen', False) or not new_exe_path:
         return False
-    current_exe = sys.executable
+    current_exe = exe_path()
+    if not current_exe:
+        return False
     bat_path = os.path.join(tempfile.gettempdir(), 'expertapp_update.bat')
     tmp_dir = os.path.dirname(new_exe_path)
 
     if kind == 'installer':
-        # مثبّت: تثبيت صامت فوق النسخة الحالية (نفس AppId) ثم إعادة تشغيل البرنامج
+        # مثبّت: تثبيت صامت **بنفس مجلد البرنامج** (نفس AppId) ⟵ يحذف
+        # النسخة القديمة ويزرع الجديدة بنفس المكان، ثم إعادة التشغيل.
+        # ⚠️ `call` مو `start /wait`: الـbatch يشتغل مفصول (بلا نافذة) —
+        #    `start /wait` يعلّق لو ما قدر يفتح نافذة جديدة.
+        app_dir = os.path.dirname(current_exe)
         script = (
             '@echo off\r\n'
             'ping -n 3 127.0.0.1 >nul\r\n'
-            f'start /wait "" "{new_exe_path}" /VERYSILENT /SUPPRESSMSGBOXES '
-            '/NORESTART /CLOSEAPPLICATIONS\r\n'
-            f'start "" "{current_exe}"\r\n'
+            f'call "{new_exe_path}" /VERYSILENT /SUPPRESSMSGBOXES '
+            f'/NORESTART /CLOSEAPPLICATIONS /SP- /DIR="{app_dir}"\r\n'
             f'rmdir /S /Q "{tmp_dir}" >nul 2>&1\r\n'
+            f'start "" "{current_exe}"\r\n'
             '(goto) 2>nul & del "%~f0"\r\n'
         )
     else:
         backup = _backup_current_exe(current_exe)
-        # copy بمحاولات متكررة: EXE الأصلي يظل مقفولًا لحظات بعد إغلاق البرنامج
+        bak_dir = os.path.dirname(backup) if backup else ''
+        # copy بمحاولات متكررة: EXE الأصلي يظل مقفولًا لحظات بعد إغلاق البرنامج.
+        # ⚠️ التدفّق بـgoto (مو set/if) — لأن `set ok=1 & goto` يخزّن "1 " بمسافة
+        #    فتصير المقارنة `"1 " == "1"` فاشلة والتنظيف ما ينفّذ.
         script = (
             '@echo off\r\n'
             'ping -n 3 127.0.0.1 >nul\r\n'
             'set tries=0\r\n'
             ':retry\r\n'
             f'copy /Y "{new_exe_path}" "{current_exe}" >nul 2>&1\r\n'
-            'if not errorlevel 1 goto :done\r\n'
+            'if not errorlevel 1 goto :cleanup_ok\r\n'
             'set /a tries+=1\r\n'
             'if %tries% LSS 15 (\r\n'
             '  ping -n 2 127.0.0.1 >nul\r\n'
@@ -607,14 +675,21 @@ def apply_update(new_exe_path, kind='program'):
             ')\r\n'
         )
         if backup:
-            # فشل نهائي بالنسخ → رجّع النسخة القديمة وشغّلها
+            # فشل نهائي بالنسخ → رجّع النسخة القديمة
             script += (
                 f'copy /Y "{backup}" "{current_exe}" >nul 2>&1\r\n'
             )
         script += (
-            ':done\r\n'
-            f'start "" "{current_exe}"\r\n'
+            'goto :cleanup\r\n'
+            ':cleanup_ok\r\n'
+            # تنظيف **قبل** إعادة التشغيل: النسخة الاحتياطية القديمة (من نسخ
+            # سابقة) كانت «نسخة ثانية» بمجلد البرنامج — نحذفها بعد النجاح،
+            # ومجلد النسخة الاحتياطية المؤقت كمان.
+            f'del /F /Q "{current_exe}.bak" >nul 2>&1\r\n'
+            f'rmdir /S /Q "{bak_dir}" >nul 2>&1\r\n'
+            ':cleanup\r\n'
             f'rmdir /S /Q "{tmp_dir}" >nul 2>&1\r\n'
+            f'start "" "{current_exe}"\r\n'
             '(goto) 2>nul & del "%~f0"\r\n'
         )
     with open(bat_path, 'w', encoding='mbcs', errors='replace') as f:
@@ -624,4 +699,6 @@ def apply_update(new_exe_path, kind='program'):
         creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS,
         close_fds=True,
     )
+    #سكربت الـbatch اشتغل ⟵ نخرج من البرنامج، وهو يكمل شغله:
+    #نسخ النسخة الجديدة + إعادة تشغيل المسار نفسه.
     os._exit(0)

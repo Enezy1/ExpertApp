@@ -11,6 +11,11 @@
 #   • «نتيجة الإعلان»: جدول منفصل تحت (أعمدة نظام الوزارة كما هي).
 #   • شريط إجراءات سفلي ثابت: حالة الاتصال + «إغلاق/تحديث/طباعة/إرسال الإعلان».
 #
+# ⚠️ وضع «عرض الحالة» (read_only) — الجلسة مضى وقتها (نفس اليوم بعد وقتها):
+#   نافذة نفسها بلا زر «إعلان» لكل طرف وبلا زر «إرسال»، مع شريط تنبيه يشرح السبب.
+#   السبب: نظام الخبراء يرفض إعلاناً لجلسة سابقة (رد «4»).
+#   الغرض: الخبير يقدر يشوف «شنو صار بالإعلان» بدل ما الشاشة تختفي عليه.
+#
 # ⚠️ Enter ما يرسل أبداً — التأكيد نافذة داخلية وزر «تراجع» هو الافتراضي.
 # ⚠️ الإرسال ما يصير إلا بعد موافقة الخبير، والمكتبة (ilann.py) ترسل بـ dry_run=True افتراضياً.
 import os
@@ -26,6 +31,7 @@ from PyQt6.QtWidgets import (
 
 import qt_theme as th
 import qt_icons as ic
+import qt_fit
 from qt_widgets import Card, PrimaryButton, SecondaryButton, _field_qss
 
 import ilann
@@ -297,12 +303,17 @@ def _place_on_left(dlg, parent=None):
             keep = max(640, parent.minimumWidth())
         except Exception:
             keep = 640
-    width = max(480, int(geo.width() * 0.42))
-    width = min(width, max(480, geo.width() - keep - 12))
+    # عرض صحيفة الدعوى: 42% من الشاشة — وعلى الشاشة الضيّقة ما ناخذ
+    # أكثر عشان يبقى مكان كافي لشريط الإجراءات (الأزرار) في النافذة أم.
+    width = max(360, int(geo.width() * 0.42))
+    avail = geo.width() - width - 12
+    width = min(width, max(360, avail))
     dlg.setGeometry(geo.left(), geo.top(), width, geo.height())
     if parent is not None and hasattr(parent, 'setGeometry'):
         try:
-            pw = min(parent.width(), max(keep, geo.width() - width - 12))
+            # ⚠️ ما نقرّر عرض النافذة أم عن حدّه الأدنى: شريط الإجراءات
+            #    (وزر «إرسال الإعلان») هو الأهم — لو ضغطناها انقصّ الزر.
+            pw = min(parent.width(), max(keep, avail))
             pw = min(pw, geo.width())
             x = geo.left() + geo.width() - pw
             if x < geo.left() + width + 12:
@@ -397,7 +408,10 @@ class _ConfirmSend(QDialog):
         super().__init__(parent)
         self.setWindowTitle('تأكيد إرسال إعلان')
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-        self.setMinimumWidth(600)
+        # ⚠️ الحدّ الأدنى يتعدّل على حجم الشاشة (زوم/شاشة صغيرة) — وإلا
+        #    طلعت النافذة أعرض من الشاشة وانقصّت أزرارها.
+        geo = qt_fit.available_geometry(self)
+        self.setMinimumWidth(max(360, min(600, geo.width() - 32)))
 
         root = QVBoxLayout(self)
         root.setContentsMargins(20, 18, 20, 18)
@@ -439,6 +453,8 @@ class _ConfirmSend(QDialog):
         root.addLayout(btns)
 
         self.btn_cancel.setFocus(Qt.FocusReason.OtherFocusReason)
+        # المقاس على المحتوى — ومقصوص لو ما fit على الشاشة
+        qt_fit.clamp_to_screen(self)
 
 
 # ---------------------------------------------------------------------------
@@ -1009,9 +1025,14 @@ class IlannDialog(QDialog):
     _sent = pyqtSignal(dict)
 
     def __init__(self, cookies, caso_no, data=None, auto_no='', session_date='',
-                 session_time='', case_title='', current_user='', parent=None):
+                 session_time='', case_title='', current_user='', read_only=False,
+                 parent=None):
         super().__init__(parent)
         self.cookies = cookies
+        # ⚠️ read_only = «عرض الحالة فقط» — الجلسة مضى وقتها (نفس اليوم بعد وقت
+        #    الجلسة). نظام الخبراء يرفض إعلاناً لجلسة سابقة (رد «4»)، فنعرض
+        #    «نتيجة الإعلان» و«حالة كل طرف» بدون زر إرسال. (18/11/2026)
+        self.read_only = bool(read_only)
         self.current_user = current_user or ''
         self.caso_no = caso_no or ''
         self.auto_no = auto_no or ''
@@ -1026,10 +1047,9 @@ class IlannDialog(QDialog):
         self._state_kind = ''
         self._connected = None      # None = ما انقيس · True · False
 
-        self.setWindowTitle('طلب إعلان — %s' % (self.caso_no or ''))
+        self.setWindowTitle('%s — %s' % ('حالة الإعلان' if self.read_only else 'طلب إعلان',
+                                         self.caso_no or ''))
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-        self.resize(1120, 780)
-        self.setMinimumSize(840, 560)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -1041,7 +1061,11 @@ class IlannDialog(QDialog):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        # تمرير أفقي عند الحاجة (ما نخسر أي عمود على شاشة ضيّقة)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        # ⚠️Ignored: ما نسمح لعرض المحتوى (الصور/الجدول) أن يفرض عرضاً
+        #    أكبر من الشاشة على النافذة — التخطيط يمرّر أفقياً بدل ما يقصّ.
+        scroll.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
         scroll.setStyleSheet("QScrollArea { border:none; background:transparent; }")
         content = QWidget()
         content.setStyleSheet("background:transparent;")
@@ -1052,11 +1076,19 @@ class IlannDialog(QDialog):
         root.addWidget(scroll, 1)
 
         self._build_facts()
+        self._build_readonly_banner()
         self._build_parties()
         self._build_form_holder()
         self._build_results()
 
         self._build_actionbar()
+
+        # ⚠️ المقاس يُحسب على الشاشة الفعلية (بعد زوم ويندوز): شاشة 1366×768
+        #    بـ150% تصير 911×512 منطقية — لو ثبّتنا 1120×780 لفتحت النافذة
+        #    أكبر من الشاشة وطلع زر «إرسال الإعلان» (Far يسار) براها.
+        #    ⚠️ لازم يكون **بعد** بناء التخطيط: قبلها ما في تخطيط نرخي
+        #    قيده (وهو اللي كان يفرض عرض 2000+ بكسل ويقصّ الأزرار).
+        qt_fit.apply_fit(self, prefer=(1120, 780), minimum=(840, 560))
 
         self._loaded.connect(self._on_loaded)
         self._failed.connect(self._on_failed)
@@ -1068,6 +1100,12 @@ class IlannDialog(QDialog):
             self._apply_data(data)
         else:
             self.refresh()
+
+    def showEvent(self, e):
+        """لو تغيّر زوم الشاشة بين الإنشاء والفتح — نرجّع النافذة جوّا الشاشة
+        (ما يبقى شريط الإجراءات — ولا حتى زر الإرسال — برا الشاشة)."""
+        super().showEvent(e)
+        qt_fit.keep_on_screen(self)
 
     # ------------------------------------------------------------------
     # بناء الأقسام
@@ -1082,7 +1120,7 @@ class IlannDialog(QDialog):
         lay.setContentsMargins(18, 0, 18, 0)
         lay.setSpacing(10)
 
-        title = QLabel('طلب إعلان')
+        title = QLabel('حالة الإعلان' if self.read_only else 'طلب إعلان')
         title.setStyleSheet(f"color:{th.SURFACE}; font-size:18px; font-weight:700;"
                             f" background:transparent; border:none;")
         lay.addWidget(title)
@@ -1107,6 +1145,11 @@ class IlannDialog(QDialog):
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(10)
 
+        # ⚠️ التسمية تتبع الحالة: جلسة قادمة ⟵ «القادمة» · جلسة مضى وقتها ⟵ «الجلسة»
+        #    (sessions_page يمرّر read_only للجلسة المنقضية).
+        date_label = 'تاريخ الجلسة' if self.read_only else 'تاريخ الجلسة القادمة'
+        time_label = 'وقت الجلسة' if self.read_only else 'وقت الجلسة القادمة'
+
         row.addWidget(_fact('رقم ملف الخبرة', self.caso_no or '—', latin=True,
                             **_fact_icon('caso')), 1)
         self.fact_case_no = _fact('رقم القضية', '—', latin=True, **_fact_icon('case'))
@@ -1114,11 +1157,37 @@ class IlannDialog(QDialog):
                                   **_fact_icon('auto'))
         row.addWidget(self.fact_case_no, 1)
         row.addWidget(self.fact_auto_no, 1)
-        row.addWidget(_fact('تاريخ الجلسة القادمة', _fmt_date(self.session_date),
+        row.addWidget(_fact(date_label, _fmt_date(self.session_date),
                             **_fact_icon('date')), 1)
-        row.addWidget(_fact('وقت الجلسة القادمة', self.session_time or '—', latin=True,
+        row.addWidget(_fact(time_label, self.session_time or '—', latin=True,
                             **_fact_icon('time')), 1)
         self.content_layout.addWidget(wrap)
+
+    def _build_readonly_banner(self):
+        """شريط تنبيه «عرض الحالة فقط» — يظهر للجلسة اللي مضى وقتها.
+
+        السبب: نظام الخبراء يرفض إعلاناً لجلسة سابقة (رد «4»)، فبدل ما نخفي
+        الشاشة بالكامل (الخبير يحتاج يشوف شنو صار بالإعلان) نعرض الحالة فقط.
+        """
+        if not self.read_only:
+            self.readonly_banner = None
+            return
+        box = QFrame()
+        box.setObjectName('readonly_banner')
+        box.setStyleSheet(
+            f"QFrame#readonly_banner {{ background:{th.AMBER_BG}; border:1px solid {th.AMBER};"
+            f" border-radius:12px; }}")
+        lay = QHBoxLayout(box)
+        lay.setContentsMargins(14, 10, 14, 10)
+        lay.setSpacing(10)
+        lay.addWidget(_icon('info', th.AMBER, 18))
+        txt = _lbl('جلسة مضى وقتها — نعرض حالة الإعلان فقط. '
+                   'الإرسال متوقف لأن نظام الخبراء ما يقبل إعلاناً لجلسة سابقة.',
+                   color=th.AMBER_TEXT, size=th.FS_BODY)
+        txt.setWordWrap(True)
+        lay.addWidget(txt, 1)
+        self.readonly_banner = box
+        self.content_layout.addWidget(box)
 
     def _build_parties(self):
         card = Card()
@@ -1132,9 +1201,12 @@ class IlannDialog(QDialog):
         self.parties_count = _pill('0 طرف', th.NAVY_TINT, th.NAVY)
         cap.addWidget(self.parties_count)
         cap.addStretch()
-        cap.addWidget(_icon('info', th.AMBER, 16))
-        cap.addWidget(_lbl('اضغط «إعلان» بجانب الطرف المطلوب لإعلانه',
-                            color=th.TEXT_SECONDARY, size=th.FS_LABEL))
+        # ⚠️ في وضع «عرض الحالة» ما فيه إعلان ⟵ نعرض حالة كل طرف بدل الدعوة للإعلان
+        cap.addWidget(_icon('info', th.AMBER if not self.read_only else th.NAVY, 16))
+        cap.addWidget(_lbl(
+            'حالة إعلان كل طرف — «تم» أو «فشل» مع السبب' if self.read_only
+            else 'اضغط «إعلان» بجانب الطرف المطلوب لإعلانه',
+            color=th.TEXT_SECONDARY, size=th.FS_LABEL))
         cl.addLayout(cap)
 
         self.parties_box = QWidget()
@@ -1162,6 +1234,12 @@ class IlannDialog(QDialog):
         cap = QHBoxLayout()
         cap.setSpacing(10)
         cap.addWidget(_lbl('نتيجة الإعلان', bold=True, size=th.FS_TITLE))
+        # ⚠️ لو القراءة جت على مستوى القضية (الجلسة المنقضية) ⟵ نقول للخبير
+        #    إن النتائج مو مربوطة بجلسة واحدة (عنده عمود «تاريخ الجلسة»).
+        self.results_note = _lbl('', color=th.AMBER_TEXT, size=th.FS_LABEL)
+        self.results_note.setWordWrap(True)
+        self.results_note.hide()
+        cap.addWidget(self.results_note, 1)
         cap.addStretch()
         cl.addLayout(cap)
 
@@ -1224,11 +1302,19 @@ class IlannDialog(QDialog):
             f"color:{th.TEXT_SECONDARY}; font-size:{th.FS_LABEL}px; font-weight:700;"
             f" background:{th.EMERALD_BG}; border-radius:12px; padding:4px 12px;"
             f" border:1px solid {th.EMERALD_BG};")
+        # الشارة نصّها قصير («متصل») — النص الكامل بالتلميح؛ كذا ما تفرض
+        # الشارة عرضاً كبيراً على الشريط (شاشة ضيّقة/زوم).
+        self.conn_lbl.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.conn_lbl.setToolTip('حالة الاتصال بنظام الخبراء')
         lay.addWidget(self.conn_lbl)
 
         self.lbl_state = _lbl('', color=th.TEXT_SECONDARY, size=th.FS_LABEL)
         self.lbl_state.setWordWrap(True)
-        self.lbl_state.setMinimumWidth(160)
+        # ⚠️ نص الحالة هو العنصر المطّاطي الوحيد — لازم ينكمش (مو يفرض
+        #    حدّاً أدنى على العرض) وإلا انزاحت الأزرار (وزر الإرسال) برا
+        #    الشاشة على الأجهزة اللي فيها زوم.
+        self.lbl_state.setMinimumWidth(0)
+        self.lbl_state.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         # قارئ الشاشة يقرأ النتيجة لو وصله التركيز (FocusReason)
         self.lbl_state.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.lbl_state.setAccessibleName('حالة طلب الإعلان')
@@ -1265,6 +1351,13 @@ class IlannDialog(QDialog):
         self.btn_send.clicked.connect(self._send_selected)
         self.btn_send.setEnabled(False)
         lay.addWidget(self.btn_send)
+
+        # ⚠️ وضع «عرض الحالة» (الجلسة مضى وقتها): ما فيه إرسال ⟵ نخفي الزر
+        #    ونقول بالخطر شنو صاير بدل ما الخبير يضغط وما يصير شي.
+        if self.read_only:
+            self.btn_send.hide()
+            self._set_state('عرض الحالة فقط — الإرسال متوقف (الجلسة مضى وقتها).',
+                            color=th.AMBER_TEXT)
 
         self.actionbar = bar
         self.layout().addWidget(bar)
@@ -1306,6 +1399,15 @@ class IlannDialog(QDialog):
         # الطباعة بإعلان فعلي فقط (ما نطبع إشعار فاضي)
         self.btn_print.setEnabled(bool(self.data.get('results')))
         self._set_connection(True)
+        # ⚠️ النتائج على مستوى القضية (ما قدرنا نحدد الجلسة) ⟵ نوضّح للخبير
+        if getattr(self, 'results_note', None) is not None:
+            if self.data.get('case_level'):
+                self.results_note.setText(
+                    'النتائج على مستوى القضية (ما قدرنا نحدد الجلسة) — '
+                    'راجع عمود «تاريخ الجلسة».')
+                self.results_note.show()
+            else:
+                self.results_note.hide()
 
     def _set_connection(self, ok):
         """حالة الاتصال بالشريط السفلي (نقطة + شارة)."""
@@ -1313,7 +1415,8 @@ class IlannDialog(QDialog):
         if ok:
             self.conn_dot.setStyleSheet(
                 f"background:{th.EMERALD}; border:none; border-radius:5px;")
-            self.conn_lbl.setText('متصل بنظام إدارة الإعلانات — وزارة العدل')
+            self.conn_lbl.setText('متصل')
+            self.conn_lbl.setToolTip('متصل بنظام إدارة الإعلانات — وزارة العدل')
             self.conn_lbl.setStyleSheet(
                 f"color:{th.EMERALD_TEXT}; font-size:{th.FS_LABEL}px; font-weight:700;"
                 f" background:{th.EMERALD_BG}; border-radius:12px; padding:4px 12px;"
@@ -1321,7 +1424,8 @@ class IlannDialog(QDialog):
         else:
             self.conn_dot.setStyleSheet(
                 f"background:{th.DANGER}; border:none; border-radius:5px;")
-            self.conn_lbl.setText('تعذّر الاتصال بنظام الخبراء')
+            self.conn_lbl.setText('تعذّر الاتصال')
+            self.conn_lbl.setToolTip('تعذّر الاتصال بنظام الخبراء')
             self.conn_lbl.setStyleSheet(
                 f"color:{th.DANGER_TEXT}; font-size:{th.FS_LABEL}px; font-weight:700;"
                 f" background:{th.DANGER_BG}; border-radius:12px; padding:4px 12px;"
@@ -1402,17 +1506,23 @@ class IlannDialog(QDialog):
         lay.addStretch()
 
         # ---- الزر (يسار) — نفس التسمية دائماً: «إعلان» ----
-        btn = PrimaryButton('إعلان')
-        btn.setFixedHeight(38)
-        btn.clicked.connect(lambda _=False, p=party: self._open_party(p))
-        btn.setAccessibleName('طلب إعلان — %s' % (party.get('name', '') or 'الطرف'))
-        btn.setMinimumWidth(110)
-        lay.addWidget(btn)
+        # ⚠️ وضع «عرض الحالة»: ما فيه زر «إعلان» — الجلسة مضى وقتها والنظام
+        #    ما يقبل إعلاناً لجلسة سابقة (رد «4»). يظهر بدله شارة الحالة
+        #    («تم» / «فشل») على يمين الصف.
+        if not self.read_only:
+            btn = PrimaryButton('إعلان')
+            btn.setFixedHeight(38)
+            btn.clicked.connect(lambda _=False, p=party: self._open_party(p))
+            btn.setAccessibleName('طلب إعلان — %s' % (party.get('name', '') or 'الطرف'))
+            btn.setMinimumWidth(110)
+            lay.addWidget(btn)
         return row
 
     def _fill_results(self, rows, note=None):
         """note: نص حالة «ما فيه إعلان» — يختلف لو فشل الاتصال (ما نقول «ما فيه» وأنا ما جبت)."""
-        self._empty_note = note or 'ما فيه إعلان بعد لهذه الجلسة.'
+        self._empty_note = note or (
+            'ما فيه إعلان مسجّل لهذه الجلسة.' if self.read_only
+            else 'ما فيه إعلان بعد لهذه الجلسة.')
         if getattr(self, 'results_empty_lbl', None) is not None:
             self.results_empty_lbl.setText(self._empty_note)
         self.tbl_results.setRowCount(len(rows))
@@ -1444,6 +1554,9 @@ class IlannDialog(QDialog):
     # نموذج الطرف
     # ------------------------------------------------------------------
     def _open_party(self, party):
+        # ⚠️ وضع «عرض الحالة»: ما نفتح نموذج ولا نسمح بإرسال (18/11/2026)
+        if self.read_only:
+            return
         part_id = party.get('part_id', '')
         if not part_id:
             self._set_state('ما فيه معرّف طرف لهذا السطر — تعذّر فتح نموذج الإعلان.',
@@ -1534,6 +1647,10 @@ class IlannDialog(QDialog):
     # ------------------------------------------------------------------
     def _send_selected(self):
         """زر «إرسال الإعلان» في الشريط السفلي ⟵ يستدعي نموذج الطرف المختار."""
+        if self.read_only:
+            self._set_state('الإرسال متوقف — الجلسة مضى وقتها (نظام الخبراء ما يقبلها).',
+                            color=th.AMBER_TEXT)
+            return
         if self._party_form is None:
             self._set_state('اختر طرفاً أولاً (اضغط «إعلان» بجوار الاسم).',
                             color=th.AMBER_TEXT)
@@ -1590,8 +1707,9 @@ class IlannDialog(QDialog):
         def work():
             try:
                 data = ilann.fetch_page(cookies, caso, auto,
-                                         session_date=self.session_date,
-                                         session_time=self.session_time)
+                                        session_date=self.session_date,
+                                        session_time=self.session_time,
+                                        case_fallback=self.read_only)
             except Exception:
                 self._emit(self._failed, 'تعذّر الاتصال بنظام الخبراء')
                 return

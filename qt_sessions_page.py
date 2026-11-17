@@ -1178,19 +1178,22 @@ class SessionCardQt(QWidget):
         menu = _desk_menu(self)
         a1 = menu.addAction(_menu_icon('calendar'), "إضافة للتقويم")
         a2 = menu.addAction(_menu_icon('gov'), "إخطار جهة حكومية")
+        # ⚠️ ما فيه بند «إعدادات المزامنة» — تجاوز البورت **صامت** (تلقائي)
         menu.addSeparator()   # ما يكتب في نظام الخبراء مفصول عمّا يبقى على جهازك
-        # «طلب إعلان» يكتب في نظام الخبراء ⟵ تحت الفاصل. والجلسة لازم تكون
-        # قادمة: النظام ما يقبل إعلان لجلسة سابقة (يرجّع «4»).
-        a4 = None
-        if not self._past:
-            a4 = menu.addAction(_menu_icon('file'), "طلب إعلان")
+        # «طلب إعلان» يكتب في نظام الخبراء ⟵ تحت الفاصل. للجلسة القادمة نعرض
+        # «طلب إعلان» (إرسال)، للجلسة اللي مضى وقتها نعرض «حالة الإعلان»
+        # (عرض فقط — النظام ما يقبل إعلاناً لجلسة سابقة ويرجّع «4»).
+        # ⚠️ 18/11/2026: البند ما عاد يختفي بنفس اليوم — الخبير يقدر يشوف
+        #    «شنو صار بالإعلان» حتى بعد ما يطلع وقت الجلسة.
+        a4 = menu.addAction(_menu_icon('file'),
+                            "حالة الإعلان" if self._past else "طلب إعلان")
         a3 = menu.addAction(_menu_icon('session'), "إضافة جلسة قادمة")
         action = menu.exec(_menu_anchor(self.more_btn, menu))
         if action == a1:
             self._add_to_calendar()
         elif action == a2:
             self._print_gov_notice()
-        elif a4 is not None and action == a4:
+        elif action == a4:
             self._request_inform()
         elif action == a3:
             dlg = AddSessionDialog(self.window(), self.cookies, self.caso, self.case_title, self.time, self.on_refresh)
@@ -1200,23 +1203,33 @@ class SessionCardQt(QWidget):
         """«طلب إعلان» — القضية والجلسة معروفان من بطاقة الجلسة ⟵ ما في خطوة جلب قضية.
 
         الإرسال نفسه يروح لنظام الخبراء (نفس نقطة النظام: insert_inform_detail.php).
+
+        ⚠️ الجلسة اللي مضى وقتها (نفس اليوم بعد وقتها): نفس النافذة **بوضع
+        «عرض الحالة»** (read_only) — تشوف «نتيجة الإعلان» وحالة كل طرف، بدون
+        زر إرسال (النظام يرفض «4» لجلسة سابقة). (18/11/2026)
         """
         if getattr(self, '_job_running', False):
             return
-        if self._past:
-            QMessageBox.information(self, "طلب إعلان",
-                                    "الإعلان يكون لجلسة قادمة — هذي الجلسة مضى وقتها.")
-            return
-        try:
-            case_data = self._ensure_case_data()
-        except Exception:
-            QMessageBox.critical(self, "طلب إعلان",
-                                 "تعذّر جلب بيانات القضية من نظام الخبراء.\n"
-                                 "تأكد من الاتصال وحاول مرة ثانية.")
-            return
-        auto_no = (case_data or {}).get('autocase_no', '') or ''
         cookies, caso = self.cookies, self.caso
         date, tm, title = self.date, self.time, self.case_title
+        read_only = bool(self._past)
+        if read_only:
+            # ⚠️ وضع «عرض الحالة»: ما نسوّي استخراج (سحب ملفات + ذكاء) — الخبير
+            #    بس يبي يشوف «شنو صار بالإعلان». الرقم الآلي من القاعدة المحلية،
+            #    و ilann.fetch_page يجيبه من النظام لو ما لقاه.
+            try:
+                case_data = case_db.get_case(caso) or {}
+            except Exception:
+                case_data = {}
+        else:
+            try:
+                case_data = self._ensure_case_data()
+            except Exception:
+                QMessageBox.critical(self, "طلب إعلان",
+                                     "تعذّر جلب بيانات القضية من نظام الخبراء.\n"
+                                     "تأكد من الاتصال وحاول مرة ثانية.")
+                return
+        auto_no = (case_data or {}).get('autocase_no', '') or ''
 
         def work():
             import ilann
@@ -1224,7 +1237,8 @@ class SessionCardQt(QWidget):
                 # ⚠️ تاريخ الجلسة ووقتها مطلوبين: السيرفر يقرأهما من جلسته
                 #    (ECS_MET_DATE / ECS_MET_TIME) — بدونها يرد «4» (جلسة سابقة).
                 return ilann.fetch_page(cookies, caso, auto_no,
-                                        session_date=date, session_time=tm)
+                                        session_date=date, session_time=tm,
+                                        case_fallback=read_only)
             except Exception:
                 return {'ok': False, 'reason': 'connection',
                         'message': 'تعذّر الاتصال بنظام الخبراء',
@@ -1234,7 +1248,8 @@ class SessionCardQt(QWidget):
             from qt_ilann_page import IlannDialog
             dlg = IlannDialog(cookies, caso, data=data, auto_no=auto_no,
                                session_date=date, session_time=tm, case_title=title,
-                               current_user=self.user, parent=self.window())
+                               current_user=self.user, read_only=read_only,
+                               parent=self.window())
             dlg.exec()
 
         self._run_job(work, done)
@@ -1370,21 +1385,64 @@ class SessionCardQt(QWidget):
         os.startfile(path)
 
     def _add_to_calendar(self):
+        """
+        إضافة الجلسة لتقويم iCloud — **بالخلفية** (ما تجمّد الواجهة).
+
+        ⚠️ ليش بالخلفية: شبكة الدوام تحجب Apple ⟵ الطلب يعلّق (حتى لو مهلة
+        8 ث) والواجهة كانت تتجمد. الآن: الواجهة تبقى شغّالة، والسلسلة
+        التلقائية (مباشر ⟵ وسيط ⟵ مباشر) تشتغل بالخلفية، وعند الفشل
+        نعرض **رسالة نصية وحدة** — بلا أزرار وبلا تحويل لملفات.
+        """
         try:
-            from icloud_calendar import has_credentials, add_calendar_event
+            from icloud_calendar import has_credentials
             if not has_credentials():
-                QMessageBox.warning(self, "تنبيه", "لا يوجد حساب iCloud مربوط — اربطه من صفحة الإعدادات أولاً")
+                QMessageBox.warning(self, "تنبيه",
+                                    "لا يوجد حساب iCloud مربوط — اربطه من صفحة الإعدادات أولاً")
                 return
             summary = get_case_parties_summary(self.caso, self.cookies, self.user)
             time_clean = self.time[:5]
             start_dt = datetime.strptime(f"{self.date} {time_clean}", "%Y/%m/%d %H:%M")
-            ok, err = add_calendar_event(f"{summary} - {self.caso}", start_dt)
-            if ok:
-                QMessageBox.information(self, "تم", "تمت إضافة الجلسة لتقويمك بنجاح")
-            else:
-                QMessageBox.critical(self, "فشل", f"تعذرت الإضافة:\n\n{err}")
         except Exception as e:
-            QMessageBox.critical(self, "فشل", f"تعذرت الإضافة:\n\n{e}")
+            QMessageBox.critical(self, "فشل", f"تعذّر تجهيز الموعد:\n\n{e}")
+            return
+
+        def work():
+            from icloud_calendar import add_calendar_event
+            return add_calendar_event(f"{summary} - {self.caso}", start_dt,
+                                      description=self.case_name or '')
+
+        self._run_job(work, self._calendar_done)
+
+    def _calendar_done(self, result):
+        """نتيجة الإضافة (بالخيط الرئيسي)."""
+        ok, err = result if isinstance(result, (tuple, list)) else (False, str(result))
+        if ok:
+            QMessageBox.information(self, "تم", "تمت إضافة الجلسة لتقويمك بنجاح")
+            return
+        self._calendar_failed(str(err))
+
+    def _calendar_failed(self, err):
+        """
+        فشل الإضافة — **رسالة نصية وحدة** (بدون أزرار وبلا تحويل لملفات).
+
+        ⚠️ السلسلة التلقائية (مباشر ⟵ وسيط ⟵ مباشر) خلصت كلها بالفشل ⟵
+        غالباً خدمة iCloud محجوبة في شبكة الدوام (البورت مقفل). ما فيه
+        خيارات ولا تحويل لملفات: يقرر الخبير بنفسه.
+        """
+        msg = str(err or '').strip()
+        if not msg:
+            try:
+                from icloud_calendar import BLOCKED_MESSAGE
+                msg = BLOCKED_MESSAGE
+            except Exception:
+                msg = 'خدمة iCloud محجوبة في شبكة الدوام (البورت مقفل).'
+        box = QMessageBox(self.window())
+        box.setWindowTitle('تعذّرت الإضافة')
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setText('ما قدرنا نضيف الجلسة لتقويم iCloud.')
+        box.setInformativeText(msg)
+        box.setStyleSheet("QLabel{min-width:320px;}")
+        box.exec()
 
 
 class DayDivider(QWidget):

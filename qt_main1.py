@@ -32,6 +32,7 @@ from db_writer import (
     parse_expertise_number, parse_court_case_number,
     build_experts_dash_string, today_ddmmyyyy, insert_case_record, get_expert_names,
 )
+from dates import normalize_date
 from department_report import build_department_week_report_html
 from main1_config import load_db_path, save_db_path
 import case_db
@@ -315,6 +316,19 @@ def _build_label_html(fields):
     return path
 
 
+def _label_referral_date(values):
+    """تاريخ الإحالة (رئيس القسم) للملصق — بصيغة DD/MM/YYYY.
+
+    ⚠️ 18/11/2026 (طلب العنزي): بدّل **تاريخ الحكم** بـ**تاريخ الإحالة** في
+    الملصق — تاريخ الحكم مو مهم للخبير، واللي يبيه هو تاريخ إحالة رئيس القسم.
+    المصدر: حقل النموذج «تاريخ إحالة رئيس القسم» (`reg_date_r`).
+    """
+    raw = str((values or {}).get('reg_date_r', '') or '').strip()
+    if not raw:
+        return ''
+    return normalize_date(raw)
+
+
 def _label_fields_from_values(values, caso_no):
     """يبني قائمة حقول الملصق (label, value) من قيم نموذج المراجعة (أو من
     نتيجة _lookup_case لقضية إضافية بنافذة الدمج — نفس المفاتيح)."""
@@ -346,7 +360,7 @@ def _label_fields_from_values(values, caso_no):
     return [
         ("رقم الخبرة", caso_no),
         ("رقم الدعوى في المحكمة", court_no_disp),
-        ("تاريخ الحكم", values.get('courtdate', '')),
+        ("تاريخ الإحالة", _label_referral_date(values)),
         ("الجلسة المحددة للخبير", session_disp),
         ("اسم المدعي", values.get('name_c', '')),
         ("اسم المدعى عليها", values.get('name_p', '')),
@@ -1165,6 +1179,12 @@ class Main1Page(QWidget):
         if not autocase_no:
             autocase_no = _get_autocase_no(caso_no, self.cookies)
         result.update({'caso_no': caso_no, 'autocase_no': autocase_no})
+
+        # ⚠️ 18/11/2026: تاريخ الإحالة (رئيس القسم) للملصق — من القاعدة
+        #    المحلية (`received_date` = تاريخ وارد/إحالة القضية) وإلا اليوم.
+        #    (صفحة «إضافة قضية» تكتب فوقه بيوم الجلب — سطر 1142.)
+        _recv = str((cached or {}).get('received_date', '') or '').strip()
+        result['reg_date_r'] = normalize_date(_recv) if _recv else today_ddmmyyyy()
 
         used_local = False
         if cached and (cached.get('plaintiffs') or cached.get('defendants')):

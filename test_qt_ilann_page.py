@@ -5,7 +5,8 @@
 #   • الضغط «إعلان» يفتح النموذج **تحت القائمة بنفس النافذة** (مو نافذة ثانية).
 #   • Enter ما يرسل أبداً — زر «تراجع» هو الافتراضي في نافذة التأكيد.
 #   • الإرسال ما يصير إلا بعد موافقة، والقيم الفارغة («null») ما تطلع ولا ترسل.
-#   • «طلب إعلان» بقائمة «إجراءات أخرى» بس للجلسات القادمة.
+#   • «طلب إعلان» بقائمة «إجراءات أخرى» — ولما الجلسة تنقضي يصير «حالة الإعلان»
+#     (عرض النتيجة بدون إرسال؛ البند ما يختفي بنفس اليوم — 18/11/2026).
 #   python -W ignore -m unittest test_qt_ilann_page -v
 import os
 import time
@@ -42,6 +43,29 @@ PAGE_DATA = {'ok': True, 'auto_no': '260668600',
 def _read(name):
     with open(os.path.join(DATA, name), encoding='utf-8', errors='ignore') as f:
         return f.read()
+
+
+# ⚠️ **بلا شبكة في الاختبارات**: `PartyForm.load()` تشغّل خيطاً لجلب
+#    المناطق (`ilann.fetch_zones`) — لو ما انموكست، الخيط يطلب سيرفر
+#    الوزارة فعلياً، ولما ينتهي يطلّع على نموذج انحذف ⟵ انهيار متقطّع
+#    (RuntimeError/Access Violation) حسب توقيت الـGC.
+_ZONES_PATCH = None
+
+
+def setUpModule():
+    global _ZONES_PATCH
+    _ZONES_PATCH = mock.patch.object(qi.ilann, 'fetch_zones', return_value=[])
+    _ZONES_PATCH.start()
+
+
+def tearDownModule():
+    global _ZONES_PATCH
+    if _ZONES_PATCH is not None:
+        try:
+            _ZONES_PATCH.stop()
+        except Exception:
+            pass
+        _ZONES_PATCH = None
 
 
 def pump(predicate, secs=10):
@@ -435,7 +459,7 @@ class StateTests(unittest.TestCase):
 
 
 class SessionsMenuTests(unittest.TestCase):
-    """«طلب إعلان» بقائمة «إجراءات أخرى» — بس للجلسات القادمة"""
+    """«طلب إعلان» بقائمة «إجراءات أخرى» — والبند **ما يختفي** بنفس اليوم"""
 
     def _card(self):
         import qt_sessions_page as qs
@@ -455,11 +479,35 @@ class SessionsMenuTests(unittest.TestCase):
         card.set_past(False)
         self.assertIn('طلب إعلان', self._menu_labels(card))
 
-    def test_menu_hides_announcement_for_past_session(self):
-        """النظام ما يقبل إعلان لجلسة سابقة ⟵ ما نعرضه."""
+    def test_menu_shows_status_for_past_session(self):
+        """⚠️ انحدار (18/11/2026): البند **ما ينحذف** لما الجلسة تنقضي.
+
+        السبب: الخبير يحتاج يشوف «شنو صار بالإعلان» — قبل كانت ميزة الإعلان
+        تختفي بنفس اليوم (بعد وقت الجلسة) وما يقدر يطّلع على النتيجة.
+        ⟵ بند «حالة الإعلان» (عرض فقط) بدل «طلب إعلان» (إرسال).
+        """
         card = self._card()
         card.set_past(True)
-        self.assertNotIn('طلب إعلان', self._menu_labels(card))
+        labels = self._menu_labels(card)
+        self.assertIn('حالة الإعلان', labels)
+        self.assertNotIn('طلب إعلان', labels)
+
+    def test_past_session_does_not_send_but_reads(self):
+        """الجلسة المنقضية ⟵ نافذة بوضع «عرض الحالة» (ما فيها إرسال)."""
+        card = self._card()
+        card.set_past(True)
+        seen = {}
+
+        def fake_run_job(work, on_done):
+            seen['read_only'] = card._past
+
+        with mock.patch.object(card, '_ensure_case_data', return_value={'autocase_no': '260668600'}), \
+             mock.patch.object(card, '_run_job', side_effect=fake_run_job), \
+             mock.patch.object(qi.ilann, 'fetch_page', return_value={'ok': True,
+                                                                   'parties': PARTIES,
+                                                                   'results': []}):
+            card._request_inform()
+        self.assertTrue(seen.get('read_only'))
 
     def test_request_inform_uses_known_case(self):
         card = self._card()
@@ -477,6 +525,87 @@ class SessionsMenuTests(unittest.TestCase):
         self.assertTrue(fp.called)
         self.assertEqual(fp.call_args[0][1], 'A2264212')
         self.assertEqual(fp.call_args[0][2], '260668600')
+
+
+class ReadOnlyDialogTests(unittest.TestCase):
+    """وضع «عرض الحالة» — الجلسة مضى وقتها (نفس اليوم بعد وقتها).
+
+    الهدف: الخبير يفتح الشاشة ويشوف «شنو صار بالإعلان» — بدون ما يقدر يرسل
+    (نظام الخبراء يرفض إعلاناً لجلسة سابقة — رد «4»).
+    """
+
+    def setUp(self):
+        self.dlg = qi.IlannDialog({'s': '1'}, 'A2264212', data=PAGE_DATA,
+                                   auto_no='260668600', session_date='2026/11/10',
+                                   session_time='01:30',
+                                   case_title='شركه الاتصالات المتنقله ضد المرى',
+                                   current_user='خبير تجريبي', read_only=True)
+
+    def test_send_button_hidden(self):
+        """ما فيه زر إرسال — ما ينفع (النظام ما يقبل إعلاناً لجلسة سابقة)."""
+        self.assertTrue(self.dlg.btn_send.isHidden())
+
+    def test_no_announce_button_per_party(self):
+        """ما فيه زر «إعلان» لكل طرف — بس حالة كل طرف."""
+        self.assertNotIn('إعلان', _buttons(self.dlg))
+
+    def test_banner_explains_why(self):
+        """شريط التنبيه يشرح السبب — الخبير يعرف ليش ما فيه إرسال."""
+        texts = ' | '.join(w.text() for w in self.dlg.findChildren(QLabel))
+        self.assertIn('مضى وقتها', texts)
+        self.assertIn('حالة الإعلان', texts)
+
+    def test_results_table_still_shown(self):
+        """الجدول موجود — هذا هو المقصود من «حالة الإعلان»."""
+        self.assertEqual(self.dlg.tbl_results.rowCount(), 2)
+        self.assertEqual(self.dlg.tbl_results.item(0, 4).text(), 'تم')
+
+    def test_title_is_status_not_request(self):
+        self.assertIn('حالة الإعلان', self.dlg.windowTitle())
+
+    def test_session_labels_not_upcoming(self):
+        """التسمية تتبع الحالة — ما نقول «الجلسة القادمة» لجلسة منقضية."""
+        texts = [w.text() for w in self.dlg.findChildren(QLabel)]
+        self.assertNotIn('تاريخ الجلسة القادمة', texts)
+        self.assertIn('تاريخ الجلسة', texts)
+
+    def test_open_party_does_nothing(self):
+        """ما نفتح نموذج ولا نسمح بإرسال."""
+        self.dlg._open_party(PARTIES[0])
+        self.assertIsNone(self.dlg._party_form)
+        self.assertEqual(self.dlg.form_layout.count(), 0)
+
+    def test_send_selected_is_blocked(self):
+        """حتى لو اتصلنا بالزر برمجياً ⟵ ما يصير إرسال."""
+        self.dlg._send_selected()
+        self.assertIsNone(self.dlg._party_form)
+
+    def test_empty_message_read_only(self):
+        """بلا نتائج ⟵ رسالة صادقة «ما فيه إعلان مسجّل»."""
+        dlg = qi.IlannDialog({'s': '1'}, 'A2264212',
+                             data={'ok': True, 'case': {}, 'parties': PARTIES,
+                                   'results': []},
+                             auto_no='260668600', session_date='2026/11/10',
+                             read_only=True)
+        texts = ' | '.join(w.text() for w in dlg.findChildren(QLabel))
+        self.assertIn('ما فيه إعلان مسجّل', texts)
+
+    def test_case_level_note_shown(self):
+        """لو النتائج جت على مستوى القضية ⟵ نوضّح للخبير (أمانة الأرقام)."""
+        dlg = qi.IlannDialog({'s': '1'}, 'A2264212',
+                             data={'ok': True, 'case': {}, 'parties': PARTIES,
+                                   'results': RESULTS, 'case_level': True},
+                             auto_no='260668600', session_date='2026/11/10',
+                             read_only=True)
+        texts = ' | '.join(w.text() for w in dlg.findChildren(QLabel))
+        self.assertIn('على مستوى القضية', texts)
+
+    def test_case_level_note_hidden_for_normal_session(self):
+        """الجلسة القادمة ⟵ ما في تنبيه «مستوى القضية»."""
+        dlg = qi.IlannDialog({'s': '1'}, 'A2264212', data=PAGE_DATA,
+                             auto_no='260668600', session_date='2026/11/10')
+        texts = ' | '.join(w.text() for w in dlg.findChildren(QLabel))
+        self.assertNotIn('على مستوى القضية', texts)
 
 
 class ShellTests(unittest.TestCase):

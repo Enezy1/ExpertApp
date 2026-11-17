@@ -542,13 +542,31 @@ def resolve_auto_no(caso_no, cookies, fallback=''):
     return str(fallback or '').strip()
 
 
-def fetch_page(cookies, caso_no, auto_no, session_date='', session_time=''):
+def fetch_page(cookies, caso_no, auto_no, session_date='', session_time='',
+               case_fallback=False):
     """يقرأ صفحة «طلب اعلان» كاملة.
 
     يرجّع:
         {'ok': bool, 'case': {...}, 'parties': [...], 'results': [...],
          'message': str, 'reason': 'connection'|'no_data'|''}
+
+    ⚠️ case_fallback (18/11/2026): للجلسة **المنقضية** (نفس اليوم بعد وقتها).
+    السيرفر يقرأ تاريخ الجلسة من جلسته (ECS_MET_DATE) — ولو ما ضبطه للجلسة
+    المنقضية، ما ترجع «نتيجة الإعلان» لهذه الجلسة. ⟵ نعيد القراءة **بدون
+    تاريخ الجلسة** (عرض على مستوى القضية) والنتائج فيها عمود «تاريخ الجلسة»
+    فالخبير يشوف أي سطر تخص أي جلسة.
     """
+    out = _fetch_page_once(cookies, caso_no, auto_no, session_date, session_time)
+    if case_fallback and session_date and (not out['ok'] or not out['results']):
+        alt = _fetch_page_once(cookies, caso_no, auto_no, '', '')
+        if alt['ok'] and alt['results']:
+            alt['case_level'] = True
+            return alt
+    return out
+
+
+def _fetch_page_once(cookies, caso_no, auto_no, session_date='', session_time=''):
+    """قراءة صفحة «طلب اعلان» مرة واحدة (بلا بدائل)."""
     out = {'ok': False, 'case': {}, 'parties': [], 'results': [], 'message': '', 'reason': ''}
     # الرقم الآلي من النظام أولاً (مصدر موثوق)؛ المحلي من القاعدة قد يكون قديم/غلط
     # ⟵ يختار قضية غلط فترجع «لا توجد بيانات». (هذا اللي انكسر لما شلنا الجلب.)

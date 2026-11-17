@@ -9,6 +9,7 @@
 """
 import os
 import shutil
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -198,6 +199,199 @@ class VersionTests(unittest.TestCase):
     def test_newer_version_detected(self):
         self.assertGreater(up._parse_version('1.2.9'), up._parse_version('1.2.8'))
         self.assertFalse(up._parse_version('1.2.8') > up._parse_version('1.2.8'))
+
+
+# ---------------------------------------------------------------------------
+# التحديث «بمكانه» — ما نسخة ثانية أبداً (المبلَّغ 17/11/2026)
+# ---------------------------------------------------------------------------
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+
+
+class ApplyUpdateTests(unittest.TestCase):
+    """
+    ⚠️ المشكلة: التحديث كان **ينصّب نسخة ثانية** بمكان ثاني (المثبّت يشتغل
+    بدون تحديد مجلد) فيبقى البرنامج القديم شغّالاً والنسخة ما تتغيّر.
+
+    المطلوب: الاستبدال **دائماً** بمكان النسخة الحالية + إعادة التشغيل من
+    نفس المسار (اختصارات المستخدم تبقى على النسخة الجديدة).
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix='upd_apply_')
+        self.exe = os.path.join(self.tmp, 'ExpertApp.exe')
+        with open(self.exe, 'wb') as f:
+            f.write(b'MZ' + b'\0' * 100)
+        self.new_dir = os.path.join(self.tmp, 'downloaded')
+        os.makedirs(self.new_dir, exist_ok=True)
+        self.new = os.path.join(self.new_dir, 'ExpertApp.exe')
+        with open(self.new, 'wb') as f:
+            f.write(b'MZ' + b'\1' * 200)
+        self.bat = os.path.join(tempfile.gettempdir(), 'expertapp_update.bat')
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+        import glob
+        for d in glob.glob(os.path.join(tempfile.gettempdir(), 'ExpertAppUpdate_Bak_*')):
+            shutil.rmtree(d, ignore_errors=True)
+
+    def _apply(self, kind='program'):
+        if os.path.exists(self.bat):
+            os.remove(self.bat)
+        with mock.patch.object(sys, 'frozen', True, create=True), \
+             mock.patch.object(sys, 'executable', self.exe), \
+             mock.patch.object(up.subprocess, 'Popen') as popen, \
+             mock.patch.object(up.os, '_exit') as exit_:
+            up.apply_update(self.new, kind)
+        script = ''
+        if os.path.exists(self.bat):
+            with open(self.bat, encoding='mbcs', errors='replace') as f:
+                script = f.read()
+        # البرنامج يخرج فوراً (os._exit) — نسجّل إنه اشتغل فعلاً
+        self.assertTrue(exit_.called, 'البرنامج ما خرج — سكربت التحديث ما اشتغل')
+        self.assertTrue(popen.called)
+        return script
+
+    def test_program_replaces_same_file(self):
+        script = self._apply('program')
+        self.assertIn(f'copy /Y "{self.new}" "{self.exe}"', script)
+
+    def test_restarts_same_path(self):
+        """⟵ الاختصارات وقائمة ابدأ تبقى على النسخة الجديدة."""
+        script = self._apply('program')
+        self.assertIn(f'start "" "{self.exe}"', script)
+
+    def test_no_backup_next_to_program(self):
+        """
+        ⚠️ النسخة الاحتياطية كانت تنحفظ **جنب البرنامج** (ExpertApp.exe.bak)
+        وتبقى للأبد ⟵ كانت هي «النسخة الثانية». الآن: بمجلد مؤقت.
+        """
+        self._apply('program')
+        self.assertFalse(os.path.exists(self.exe + '.bak'))
+        script = self._apply('program')
+        self.assertNotIn(f'"{self.exe}.bak"', script.split('del /F')[0])
+
+    def test_old_backup_is_cleaned(self):
+        """نسخة احتياطية قديمة (من نسخ سابقة) تنحذف بعد التحديث."""
+        script = self._apply('program')
+        self.assertIn(f'del /F /Q "{self.exe}.bak"', script)
+
+    def test_installer_installs_in_same_folder(self):
+        """
+        ⚠️ الأساس: المثبّت ينصّب **بنفس مجلد البرنامج** (/DIR) ⟵ يستبدل
+        النسخة القديمة بدل ما ينصّب نسخة ثانية بمكان ثاني.
+        """
+        app_dir = os.path.dirname(self.exe)
+        script = self._apply('installer')
+        self.assertIn(f'/DIR="{app_dir}"', script)
+        self.assertIn('/VERYSILENT', script)
+
+    def test_installer_restarts_same_path(self):
+        script = self._apply('installer')
+        self.assertIn(f'start "" "{self.exe}"', script)
+
+    def test_not_frozen_returns_false(self):
+        with mock.patch.object(sys, 'frozen', False, create=True):
+            self.assertFalse(up.apply_update(self.new, 'program'))
+
+    def test_empty_path_returns_false(self):
+        with mock.patch.object(sys, 'frozen', True, create=True):
+            self.assertFalse(up.apply_update('', 'program'))
+
+
+class DetectVersionTests(unittest.TestCase):
+    """رقم النسخة يُقرأ **تلقائياً** من ملف النسخة بالمجلد."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp(prefix='upd_ver_')
+
+    def tearDown(self):
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def test_reads_version_from_exe(self):
+        _mk_exe(self.dir, 'ExpertApp.exe')
+        with mock.patch.object(up, '_exe_file_version', return_value='1.2.13'):
+            self.assertEqual(up.detect_version(self.dir), '1.2.13')
+
+    def test_empty_without_exe(self):
+        self.assertEqual(up.detect_version(self.dir), '')
+
+    def test_empty_for_unreachable_folder(self):
+        with mock.patch.object(up, '_path_reachable', return_value=False):
+            self.assertEqual(up.detect_version(r'\\srv\Updates'), '')
+
+
+class PublishVersionTests(unittest.TestCase):
+    """رقم النسخة المنشور = المقروء تلقائياً (اليدوي احتياط فقط)."""
+
+    def _post_body(self, **kwargs):
+        with mock.patch.object(up, 'detect_version', **kwargs), \
+             mock.patch.object(up.requests, 'post') as post:
+            post.return_value.status_code = 200
+            post.return_value.text = ''
+            ok, err = up.publish_app_version(r'\\srv\Updates', '1.0.0')
+        self.assertTrue(ok, err)
+        return post.call_args_list[0].kwargs['json']
+
+    def test_detected_version_wins(self):
+        body = self._post_body(return_value='1.2.13')
+        self.assertEqual(body['version'], '1.2.13')
+
+    def test_manual_used_when_detection_fails(self):
+        body = self._post_body(return_value='')
+        self.assertEqual(body['version'], '1.0.0')
+
+
+class OneClickUpdateFlowTests(unittest.TestCase):
+    """ضغطة وحدة: تحميل صامت ⟵ استبدال ⟵ إعادة تشغيل."""
+
+    def test_download_triggers_apply_immediately(self):
+        with open(os.path.join(ROOT, 'main.py'), encoding='utf-8') as f:
+            src = f.read()
+        start = src.index('def _on_update_downloaded')
+        block = src[start:start + 1500]
+        end = block.find('\ndef ')
+        if end > 0:
+            block = block[:end]
+        self.assertIn('apply_update', block)
+        self.assertIn('set_update_installing', block)
+
+
+class DownloadIntegrityTests(unittest.TestCase):
+    """
+    ⚠️ ملف ناقص = نسخة مكسورة — ما يستبدل بها البرنامج الحالي (التحديث صامت).
+    """
+
+    class _Resp:
+        def __init__(self, total, chunks):
+            self.headers = {'Content-Length': str(total)}
+            self._chunks = chunks
+
+        def raise_for_status(self):
+            pass
+
+        def iter_content(self, chunk_size=1):
+            for c in self._chunks:
+                yield c
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def test_truncated_download_fails(self):
+        resp = self._Resp(1000, [b'x' * 100])
+        with mock.patch.object(up.requests, 'get', return_value=resp):
+            path = up._download_file('https://x/app.exe')
+        self.assertEqual(path, '')
+
+    def test_complete_download_kept(self):
+        resp = self._Resp(10, [b'x' * 10])
+        with mock.patch.object(up.requests, 'get', return_value=resp):
+            path = up._download_file('https://x/app.exe')
+        self.assertTrue(path)
+        self.assertEqual(os.path.getsize(path), 10)
 
 
 if __name__ == '__main__':

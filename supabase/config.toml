@@ -1,0 +1,9 @@
+# ===== supabase/config.toml — إعدادات مشروع «calendar-relay» =====
+# المشروع: ExpertApp (وسيط مزامنة تقويم iCloud — تجاوز بورت شبكة الدوام)
+#
+# ⚠️ verify_jwt = false: البرنامج ما عنده JWT — الحارس هو الرمز المشترك
+#    (x-relay-token header) + تشفير RSA لكلمة المرور.
+project_id = "xzgwlqfsdwbjoxdewffy"
+
+[functions.calendar-relay]
+verify_jwt = false
