@@ -1040,6 +1040,15 @@ if __name__ == "__main__":
         _setup_dpi()
         qt_app = QApplication.instance() or QApplication(sys.argv)
         qt_app.setWindowIcon(th.load_window_icon())
+        # تنظيف بقايا التحديث (ExpertApp.exe.old / .bak) — **قبل شاشة الدخول**.
+        # ⚠️ ليش هنا مو بعد الدخول: البقايا «نسخة ثانية» بمجلد البرنامج (178 م.ب)
+        #    ولازم تنحذف حتى لو الخبير ما دخل. (وتترك وقت التحديث لما العملية
+        #    القديمة ما تكون خرجت بعد.)
+        try:
+            import updater
+            updater.cleanup_stale_update_files()
+        except Exception:
+            pass
         # قاعدة ثابتة: كل الواجهة RTL بالكامل — نضبطها على مستوى التطبيق نفسه
         qt_app.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         # خط Tajawal المضمّن مع البرنامج — من أول شاشة (الدخول)، حتى لو مو مثبّت بالجهاز
