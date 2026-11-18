@@ -402,28 +402,43 @@ class RunningExeLockTests(unittest.TestCase):
     def _apply(self):
         with mock.patch.object(sys, 'frozen', True, create=True), \
              mock.patch.object(sys, 'executable', self.exe), \
-             mock.patch.object(up.subprocess, 'Popen'), \
+             mock.patch.object(up.subprocess, 'Popen') as popen, \
              mock.patch.object(up.os, '_exit'):
             up.apply_update(self.new, 'program')
         with open(self.bat, encoding='ascii', errors='replace') as f:
-            return f.read()
+            script = f.read()
+        return script, (popen.call_args.kwargs.get('env') or {})
 
     def test_rename_happens_before_copy(self):
         """التسمية تسبق النسخ (هي اللي تفكّ قفل الملف)."""
-        script = self._apply()
+        script, _env = self._apply()
         self.assertIn('move /Y "%EXPERTAPP_OLD%" "%EXPERTAPP_OLDBak%"', script)
         self.assertLess(script.index('move /Y "%EXPERTAPP_OLD%"'),
                         script.index('copy /Y "%EXPERTAPP_NEW%"'))
 
     def test_old_file_removed_after_success(self):
         """النسخة القديمة (.old) تنحذف بعد ما يخرج البرنامج القديم."""
-        script = self._apply()
+        script, _env = self._apply()
         self.assertIn('del /F /Q "%EXPERTAPP_OLDBak%"', script)
 
     def test_fallback_restores_old_file(self):
         """لو فشل النسخ ⟵ ترجع النسخة القديمة لمكانها."""
-        script = self._apply()
+        script, _env = self._apply()
         self.assertIn('move /Y "%EXPERTAPP_OLDBak%" "%EXPERTAPP_OLD%"', script)
+
+    def test_all_instances_force_closed_before_replace(self):
+        """
+        ⚠️ **إغلاق قسري لكل النسخ** قبل الاستبدال:
+          - نسخة PyInstaller (onefile) فيها عملية أب (bootstrap) تحتجز ملف EXE
+            بعد ما يخرج البرنامج ⟵ وتخلي الاستبدال يفشل.
+          - وأي نسخة ثانية مفتوحة (المستخدم فتح البرنامج مرتين) كمان تحتجزه.
+        ⟵ السكربت يسكّر كل النسخ (taskkill) قبل التسمية.
+        """
+        script, env = self._apply()
+        self.assertIn('taskkill /F /IM "%EXPERTAPP_IMG%"', script)
+        self.assertEqual(env.get('EXPERTAPP_IMG'), 'ExpertApp.exe')
+        self.assertLess(script.index('taskkill'),
+                        script.index('move /Y "%EXPERTAPP_OLD%"'))
 
 
 class UpdateResultTests(unittest.TestCase):

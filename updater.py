@@ -721,6 +721,12 @@ def apply_update(new_exe_path, kind='program'):
     head = (
         '@echo off\r\n'
         'ping -n 3 127.0.0.1 >nul\r\n'
+        # ⚠️ **إغلاق قسري لكل النسخ** قبل الاستبدال: نسخة PyInstaller (onefile)
+        #    فيها عملية أب (bootstrap) تحتجز ملف EXE بعد ما يخرج البرنامج،
+        #    وأي نسخة ثانية مفتوحة كمان تحتجزه ⟵ نسكّرها كلنا هني.
+        #    (الإغلاق من Sikrit البرنامج نفسه os._exit + هذي الخطوة للبقية.)
+        'taskkill /F /IM "%EXPERTAPP_IMG%" >nul 2>&1\r\n'
+        'ping -n 2 127.0.0.1 >nul\r\n'
     )
     if kind == 'installer':
         body = (
@@ -800,6 +806,7 @@ def apply_update(new_exe_path, kind='program'):
         'EXPERTAPP_DIR': app_dir,
         'EXPERTAPP_RES': result_file,
         'EXPERTAPP_TMP': tmp_dir,
+        'EXPERTAPP_IMG': os.path.basename(current_exe) or 'ExpertApp.exe',
     })
     with open(bat_path, 'w', encoding='ascii', errors='replace') as f:
         f.write(script)
