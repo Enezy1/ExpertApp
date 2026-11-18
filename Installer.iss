@@ -27,7 +27,7 @@
 ; ويتخطاهما في هذي الحالة.
 
 #define MyAppName "نظام جلسات الخبراء"
-#define MyAppVersion "1.2.14"
+#define MyAppVersion "1.2.15"
 #define MyAppPublisher "وزارة العدل - الكويت"
 #define MyAppExeName "ExpertApp.exe"
 

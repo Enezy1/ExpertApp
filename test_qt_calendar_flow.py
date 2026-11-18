@@ -149,6 +149,79 @@ class SessionsPageCalendarTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# 2ب) ⚠️ انحدار «إضافة للتقويم» — خطأ تقني خام للمستخدم (18/11/2026)
+# ---------------------------------------------------------------------------
+
+class AddToCalendarRegressionTests(unittest.TestCase):
+    """
+    ⚠️ **الخلل**: «إضافة للتقويم» كان يرمي
+
+        AttributeError: 'SessionCardQt' object has no attribute 'case_name'
+
+    ⟵ خطأ تقني خام (مو رسالة مفهومة) يظهر للمستخدم **مباشرة** عند
+    الضغط على البند — والسبب: بطاقة الجلسة فيها `case_title` مو `case_name`.
+
+    الاختبار هنا **يشغّل** مسار العمل فعلياً (مو بس يقرأ الكود) ⟵ لو
+    رجع الخطأ يبيّن نفسه.
+    """
+
+    class _Card:
+        """بديل بطاقة الجلسة — نفس الصفات اللي يقرأها المسار."""
+
+        caso = 'A2263973'
+        cookies = {'sid': 'x'}
+        user = 'خبير'
+        date = '2026/11/25'
+        time = '08:30'
+        case_title = 'شركة الاختبار ضد شركة الاختبار'
+
+        def _run_job(self, work, on_done):
+            self.work = work
+            self.on_done = on_done
+
+        def _calendar_done(self, result):
+            self.result = result
+
+    def _run(self):
+        card = self._Card()
+        captured = {}
+
+        def fake_add(summary, start_dt, description='', **kwargs):
+            captured['summary'] = summary
+            captured['description'] = description
+            captured['start'] = start_dt
+            return (True, None)
+
+        with mock.patch.object(icloud_calendar, 'has_credentials', return_value=True), \
+             mock.patch.object(icloud_calendar, 'add_calendar_event', side_effect=fake_add), \
+             mock.patch.object(qsp, 'get_case_parties_summary', return_value='مدع ضد مدعى'):
+            qsp.SessionCardQt._add_to_calendar(card)
+            result = card.work()
+        return card, captured, result
+
+    def test_worker_succeeds_without_attribute_error(self):
+        """قبل الإصلاح: AttributeError ⟵ ما في نتيجة ولا رسالة مفهومة."""
+        _card, _captured, result = self._run()
+        ok = result[0] if isinstance(result, (tuple, list)) else False
+        self.assertTrue(ok, 'مسار «إضافة للتقويم» فشل: %r' % (result,))
+
+    def test_description_uses_case_title(self):
+        """وصف الموعد = عنوان القضية (case_title) — مو case_name."""
+        _card, captured, _result = self._run()
+        self.assertEqual(captured.get('description'), 'شركة الاختبار ضد شركة الاختبار')
+
+    def test_source_has_no_case_name_attribute(self):
+        """حارس: مسار الإضافة ما يقرأ `self.case_name` (ما موجودة بالكارت)."""
+        src = inspect.getsource(qsp.SessionCardQt._add_to_calendar)
+        self.assertNotIn('self.case_name', src)
+
+    def test_card_defines_case_title(self):
+        """الكارت نفسه يعرّف `case_title` (وهو اللي ينقرأ)."""
+        src = inspect.getsource(qsp.SessionCardQt.__init__)
+        self.assertIn('self.case_title', src)
+
+
+# ---------------------------------------------------------------------------
 # 3) ⚠️ حارس الاختفاء — ما فيه أي واجهة لتجاوز البورت
 # ---------------------------------------------------------------------------
 

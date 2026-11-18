@@ -189,13 +189,27 @@ class AddSessionDialog(QDialog):
             QMessageBox.critical(self, "خطأ", str(e))
 
     def _sync_to_calendar(self, dv, tv):
-        try:
+        """
+        إضافة الجلسة الجديدة لتقويم iCloud — **بالخلفية** (ما تجمّد الواجهة).
+
+        ⚠️ ليش بالخلفية: السلسلة التلقائية (مباشر 8 ث · وسيط 12 ث · مباشر 8 ث)
+        ممكن تاخذ ~28 ثانية ⟵ لو مشت بالخيط الرئيسي تجمّدت النافذة كلها
+        (وهي نافذة «حفظ» — المستخدم يبي يشوف الرد فوراً).
+        ⚠️ الفشل **صامت** هنا: المسار تلقائي (تسجيل جلسة بالنظام) — ما نقطع
+        المستخدم برسالة. المسار اليدوي (زر «إضافة للتقويم») يعرض رسالة وحدة.
+        """
+        def work():
             from icloud_calendar import has_credentials, add_calendar_event
             if not has_credentials():
-                return
+                return (True, None)
             summary = get_case_parties_summary(self.caso_no, self.cookies, '')
             start_dt = datetime.strptime(f"{dv} {tv}", "%Y/%m/%d %H:%M")
-            add_calendar_event(f"{summary} - {self.caso_no}", start_dt, description=self.case_name or '')
+            return add_calendar_event(f"{summary} - {self.caso_no}", start_dt,
+                                      description=self.case_name or '')
+
+        try:
+            from qt_extraction import run_in_background
+            run_in_background(work, lambda _r: None, lambda _m: None)
         except Exception:
             pass
 
@@ -1407,9 +1421,14 @@ class SessionCardQt(QWidget):
             return
 
         def work():
-            from icloud_calendar import add_calendar_event
-            return add_calendar_event(f"{summary} - {self.caso}", start_dt,
-                                      description=self.case_name or '')
+            try:
+                from icloud_calendar import add_calendar_event
+                return add_calendar_event(f"{summary} - {self.caso}", start_dt,
+                                          description=self.case_title or '')
+            except Exception as e:
+                # ⚠️ ما نمرّر الاستثناء خاماً للمستخدم (كان يطلع: 'SessionCardQt'
+                #    object has no attribute 'case_name') — نرجّع رسالة مفهومة.
+                return False, ('تعذّرت الإضافة — %s' % (str(e) or 'خطأ غير معروف'))
 
         self._run_job(work, self._calendar_done)
 

@@ -245,50 +245,51 @@ class ApplyUpdateTests(unittest.TestCase):
             up.apply_update(self.new, kind)
         script = ''
         if os.path.exists(self.bat):
-            with open(self.bat, encoding='mbcs', errors='replace') as f:
+            with open(self.bat, encoding='ascii', errors='replace') as f:
                 script = f.read()
         # البرنامج يخرج فوراً (os._exit) — نسجّل إنه اشتغل فعلاً
         self.assertTrue(exit_.called, 'البرنامج ما خرج — سكربت التحديث ما اشتغل')
         self.assertTrue(popen.called)
-        return script
+        # متغيرات البيئة اللي اتمرّرناها للـbatch (المسارات كلها فيها)
+        env = popen.call_args.kwargs.get('env') or {}
+        return script, env
 
     def test_program_replaces_same_file(self):
-        script = self._apply('program')
-        self.assertIn(f'copy /Y "{self.new}" "{self.exe}"', script)
+        script, _env = self._apply('program')
+        self.assertIn('copy /Y "%EXPERTAPP_NEW%" "%EXPERTAPP_OLD%"', script)
 
     def test_restarts_same_path(self):
         """⟵ الاختصارات وقائمة ابدأ تبقى على النسخة الجديدة."""
-        script = self._apply('program')
-        self.assertIn(f'start "" "{self.exe}"', script)
+        script, _env = self._apply('program')
+        self.assertIn('start "" "%EXPERTAPP_OLD%"', script)
 
     def test_no_backup_next_to_program(self):
         """
         ⚠️ النسخة الاحتياطية كانت تنحفظ **جنب البرنامج** (ExpertApp.exe.bak)
-        وتبقى للأبد ⟵ كانت هي «النسخة الثانية». الآن: بمجلد مؤقت.
+        وتبقى للأبد ⟵ كانت هي «النسخة الثانية». الآن: التسمية (.old) المؤقتة
+        + تنظيف عند الإقلاع.
         """
         self._apply('program')
         self.assertFalse(os.path.exists(self.exe + '.bak'))
-        script = self._apply('program')
-        self.assertNotIn(f'"{self.exe}.bak"', script.split('del /F')[0])
 
     def test_old_backup_is_cleaned(self):
         """نسخة احتياطية قديمة (من نسخ سابقة) تنحذف بعد التحديث."""
-        script = self._apply('program')
-        self.assertIn(f'del /F /Q "{self.exe}.bak"', script)
+        script, _env = self._apply('program')
+        self.assertIn('del /F /Q "%EXPERTAPP_OLD%.bak"', script)
 
     def test_installer_installs_in_same_folder(self):
         """
         ⚠️ الأساس: المثبّت ينصّب **بنفس مجلد البرنامج** (/DIR) ⟵ يستبدل
         النسخة القديمة بدل ما ينصّب نسخة ثانية بمكان ثاني.
         """
-        app_dir = os.path.dirname(self.exe)
-        script = self._apply('installer')
-        self.assertIn(f'/DIR="{app_dir}"', script)
+        script, env = self._apply('installer')
+        self.assertIn('/DIR="%EXPERTAPP_DIR%"', script)
         self.assertIn('/VERYSILENT', script)
+        self.assertEqual(env.get('EXPERTAPP_DIR'), os.path.dirname(self.exe))
 
     def test_installer_restarts_same_path(self):
-        script = self._apply('installer')
-        self.assertIn(f'start "" "{self.exe}"', script)
+        script, _env = self._apply('installer')
+        self.assertIn('start "" "%EXPERTAPP_OLD%"', script)
 
     def test_not_frozen_returns_false(self):
         with mock.patch.object(sys, 'frozen', False, create=True):
@@ -297,6 +298,171 @@ class ApplyUpdateTests(unittest.TestCase):
     def test_empty_path_returns_false(self):
         with mock.patch.object(sys, 'frozen', True, create=True):
             self.assertFalse(up.apply_update('', 'program'))
+
+
+# ---------------------------------------------------------------------------
+# ⚠️ انحدار 18/11/2026 — التحديث ما كان يشتغل أبداً على أي جهاز
+# ---------------------------------------------------------------------------
+
+class ArabicPathBatchTests(unittest.TestCase):
+    """
+    ⚠️ **السبب الأول لفشل التحديث (مقاس)**: سكربت الـbatch كان يُكتب
+    بترميز mbcs (cp1252) ⟵ كل حرف عربي في مسار التثبيت صار «؟»:
+
+        C:\\...\\نظام جلسات الخبراء\\ExpertApp.exe
+        ⟵ C:\\...\\???? ????? ???????\\ExpertApp.exe   (المسار ما موجود!)
+
+    ⟵ التحديث يفشل 100% على كل جهاز (مجلد التثبيت عربي دائماً).
+
+    الحل: **السكربت ASCII صِرف** والمسارات كلها **بمتغيرات بيئة**
+    (Unicode ⟵ cmd يسلّمها سليمة).
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix='upd_arabic_')
+        self.exe = os.path.join(self.tmp, 'نظام جلسات الخبراء', 'ExpertApp.exe')
+        os.makedirs(os.path.dirname(self.exe), exist_ok=True)
+        with open(self.exe, 'wb') as f:
+            f.write(b'MZ' + b'\0' * 100)
+        self.new = os.path.join(self.tmp, 'ExpertApp.exe')
+        with open(self.new, 'wb') as f:
+            f.write(b'MZ' + b'\1' * 100)
+        self.bat = os.path.join(tempfile.gettempdir(), 'expertapp_update.bat')
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+        if os.path.exists(self.bat):
+            os.remove(self.bat)
+
+    def _apply(self):
+        with mock.patch.object(sys, 'frozen', True, create=True), \
+             mock.patch.object(sys, 'executable', self.exe), \
+             mock.patch.object(up.subprocess, 'Popen') as popen, \
+             mock.patch.object(up.os, '_exit'):
+            up.apply_update(self.new, 'program')
+        with open(self.bat, encoding='ascii', errors='replace') as f:
+            script = f.read()
+        return script, (popen.call_args.kwargs.get('env') or {})
+
+    def test_batch_file_is_pure_ascii(self):
+        """السكربت ما يحوي أي حرف عربي/غير-ASCII (ما فيه «؟» بعد الكتابة)."""
+        script, _env = self._apply()
+        script.encode('ascii')   # يرمي UnicodeEncodeError لو فيه حرف غير ASCII
+        self.assertNotIn('?', script)
+
+    def test_arabic_path_passed_through_environment(self):
+        """المسار العربي يوصل كامل بمتغير البيئة (Unicode) — مو بالسكربت."""
+        script, env = self._apply()
+        self.assertEqual(env.get('EXPERTAPP_OLD'), self.exe)
+        self.assertIn('نظام جلسات الخبراء', env.get('EXPERTAPP_OLD'))
+        self.assertNotIn('نظام جلسات الخبراء', script)
+
+    def test_new_file_passed_through_environment(self):
+        _script, env = self._apply()
+        self.assertEqual(env.get('EXPERTAPP_NEW'), self.new)
+
+    def test_result_file_written(self):
+        """الـbatch يكتب النتيجة ⟵ البرنامج يخبر الخبير إن التحديث نجح/فشل."""
+        script, env = self._apply()
+        self.assertIn('> "%EXPERTAPP_RES%" echo ok', script)
+        self.assertIn('> "%EXPERTAPP_RES%" echo failed', script)
+        self.assertTrue(env.get('EXPERTAPP_RES'))
+
+
+class RunningExeLockTests(unittest.TestCase):
+    """
+    ⚠️ **السبب الثاني (مقاس)**: ويندوز يرفض الكتابة فوق EXE شغّال:
+
+        «The process cannot access the file ... because it is being
+         used by another process»  ⟵ «البرنامج يعمل»
+
+    ونسخة onefile (PyInstaller) فيها عملية أب تحتجز الملف بعد ما يخرج
+    البرنامج ⟵ محاولات النسخ كلها تفشل.
+
+    الحل: **التسمية أولاً** (ويندوز يسمح بتسمية ملف شغّال) ⟵ يفكّ القفل
+    وبعدها ننسخ الجديدة بالمكان.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix='upd_lock_')
+        self.exe = os.path.join(self.tmp, 'ExpertApp.exe')
+        with open(self.exe, 'wb') as f:
+            f.write(b'MZ' + b'\0' * 100)
+        self.new = os.path.join(self.tmp, 'downloaded', 'ExpertApp.exe')
+        os.makedirs(os.path.dirname(self.new), exist_ok=True)
+        with open(self.new, 'wb') as f:
+            f.write(b'MZ' + b'\1' * 100)
+        self.bat = os.path.join(tempfile.gettempdir(), 'expertapp_update.bat')
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+        if os.path.exists(self.bat):
+            os.remove(self.bat)
+
+    def _apply(self):
+        with mock.patch.object(sys, 'frozen', True, create=True), \
+             mock.patch.object(sys, 'executable', self.exe), \
+             mock.patch.object(up.subprocess, 'Popen'), \
+             mock.patch.object(up.os, '_exit'):
+            up.apply_update(self.new, 'program')
+        with open(self.bat, encoding='ascii', errors='replace') as f:
+            return f.read()
+
+    def test_rename_happens_before_copy(self):
+        """التسمية تسبق النسخ (هي اللي تفكّ قفل الملف)."""
+        script = self._apply()
+        self.assertIn('move /Y "%EXPERTAPP_OLD%" "%EXPERTAPP_OLDBak%"', script)
+        self.assertLess(script.index('move /Y "%EXPERTAPP_OLD%"'),
+                        script.index('copy /Y "%EXPERTAPP_NEW%"'))
+
+    def test_old_file_removed_after_success(self):
+        """النسخة القديمة (.old) تنحذف بعد ما يخرج البرنامج القديم."""
+        script = self._apply()
+        self.assertIn('del /F /Q "%EXPERTAPP_OLDBak%"', script)
+
+    def test_fallback_restores_old_file(self):
+        """لو فشل النسخ ⟵ ترجع النسخة القديمة لمكانها."""
+        script = self._apply()
+        self.assertIn('move /Y "%EXPERTAPP_OLDBak%" "%EXPERTAPP_OLD%"', script)
+
+
+class UpdateResultTests(unittest.TestCase):
+    """نتيجة آخر تحديث — يقرأها البرنامج عند الإقلاع (مرة وحدة)."""
+
+    def setUp(self):
+        self.path = up.update_result_file()
+
+    def tearDown(self):
+        if os.path.exists(self.path):
+            os.remove(self.path)
+
+    def test_reads_and_clears(self):
+        os.makedirs(os.path.dirname(self.path), exist_ok=True)
+        with open(self.path, 'w', encoding='utf-8') as f:
+            f.write('failed\n')
+        self.assertEqual(up.read_update_result(), 'failed')
+        self.assertFalse(os.path.exists(self.path), 'الملف ما انحذف — بيطلع تنبيه كل إقلاع')
+
+    def test_missing_file_returns_empty(self):
+        self.assertEqual(up.read_update_result(), '')
+
+    def test_cleanup_removes_stale_copies(self):
+        """بقايا النسخ القديمة (نسخة ثانية) تنحذف عند الإقلاع."""
+        tmp = tempfile.mkdtemp(prefix='upd_stale_')
+        try:
+            exe = os.path.join(tmp, 'ExpertApp.exe')
+            with open(exe, 'wb') as f:
+                f.write(b'MZ')
+            for name in ('ExpertApp.exe' + up.OLD_SUFFIX, 'ExpertApp.exe.bak'):
+                with open(os.path.join(tmp, name), 'wb') as f:
+                    f.write(b'x')
+            with mock.patch.object(sys, 'frozen', True, create=True), \
+                 mock.patch.object(sys, 'executable', exe):
+                up.cleanup_stale_update_files()
+            self.assertFalse(os.path.exists(os.path.join(tmp, 'ExpertApp.exe' + up.OLD_SUFFIX)))
+            self.assertFalse(os.path.exists(os.path.join(tmp, 'ExpertApp.exe.bak')))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 class DetectVersionTests(unittest.TestCase):

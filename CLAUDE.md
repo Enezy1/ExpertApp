@@ -1144,3 +1144,89 @@ supabase secrets set --remote=xzgwlqfsdwbjoxdewffy --env-file <ملف فيه ا�
   `%LOCALAPPDATA%\ExpertApp\experts\<safe_name>\icloud_calendar.json`.
   ❌ **ما فيه** `calendar_net.json` anymore (ما فيه إعدادات أصلاً).
 - ⚠️ **Apple سقف طلبات**: لو公孙تج «خدمة iCloud مشغولة مؤقتاً» ⟵ أعد بعد دقيقة.
+
+---
+
+## 🐞 إصلاح التحديث + خطأ «إضافة للتقويم» (18/11/2026 — MCode)
+
+> **المبلَّغ من العنزي (18/11/2026):** «عند القيام بالتحديث… البرنامج يعمل
+> فما قدر يسوي تحديث، وبدأت تظهر مشاكل. والأمر الثاني: إضافة للتقويم يطلع
+> خطأ بشكل مباشر… مادري انت تبي تصلحه وخربته؟»
+> ⟵ **كلاهما حقيقي ومقيس** — واثنين منهم أخطاء دخلت في v1.2.14 نفسه.
+
+### ١) 🐞 «إضافة للتقويم» ⟵ `AttributeError` (خطأ تقني خام للمستخدم)
+
+| | |
+|---|---|
+| **الأثر** | الضغط على «إضافة للتقويم» ⟵ نافذة خطأ فيها: `'SessionCardQt' object has no attribute 'case_name'` |
+| **السبب** | `qt_sessions_page.py` `_add_to_calendar()` كان يقرأ `self.case_name` — و`SessionCardQt` فيه `self.case_title` بس |
+| **متى دخل** | **v1.2.14** (`aa3914c` — Introduced مع مسار الخلفية الجديد) |
+| **الإصلاح** | `self.case_title` + تغليف الاستثناء ⟵ **ما عاد ينزل خطأ تقني خام** (رسالة مفهومة بس) |
+
+⚠️ **ونفس البوكس كان موجود بنافذة «إضافة جلسة قادمة»** (`AddSessionDialog`) ⟵
+كان `add_calendar_event` **بخيط الواجهة** (تجمّد حتى ~28 ث: 8+12+8) ⟵ صار **بالخلفية**.
+
+### ٢) 🐞 التحديث ما ينجح أبداً — سببين حقيقيين (مقاس)
+
+#### (أ) 🔤 المسار العربي كان يضيع — `mbcs` ⟵ «؟؟؟؟»
+
+سكربت التحويل (`.bat`) كان يُكتب بـ `encoding='mbcs'` — و`mbcs` على الأجهزة
+الإنجليزية = **cp1252** ⟵ كل حرف عربي صار **`?`**:
+
+```
+المسار المقصود : C:\Users\Dell\AppData\Local\Programs\نظام جلسات الخبراء\ExpertApp.exe
+بالمكتوب فعلياً: C:\Users\Dell\AppData\Local\Programs\???? ????? ???????\ExpertApp.exe
+```
+
+⟵ **المسار ما موجود** ⟵ النسخة ما تقدر تنسخ لمكانها ⟵ **التحديث يفشل 100%
+على كل جهاز** (مجلد التثبيت عربي دائماً: «نظام جلسات الخبراء»).
+⚠️ **مقاس**: `locale.getpreferredencoding()` = `cp1252`، والملف المكتوب فعلاً
+ فيه `???? ????? ???????`.
+
+**الحل:** السكربت **ASCII صِرف** — و**أي مسار يمر بمتغير بيئة** (Unicode):
+`%EXPERTAPP_OLD%` · `%EXPERTAPP_NEW%` · `%EXPERTAPP_OLDBak%` · `%EXPERTAPP_DIR%`
+· `%EXPERTAPP_RES%` · `%EXPERTAPP_TMP%`.
+⟵ cmd يسلّمها للـWindows API **سليمة** (مقاس: نسخ ناجح لمسار عربي عبر متغيرات بيئة).
+
+#### (ب) 🔒 «البرنامج يعمل» ⟵ قفل ملف EXE
+
+ويندوز **يرفض** الكتابة فوق EXE شغّال:
+```
+The process cannot access the file 'ExpertApp.exe' because it is being used by another process.
+```
+⚠️ ونسخة **onefile** (PyInstaller) فيها **عملية أب** (bootstrap) تحتجز الملف
+حتى بعد خروج البرنامج ⟵ محاولات النسخ (15 × ~1.5 ث) كلها تفشل.
+
+**الحل: التسمية أولاً** — ويندوز **يسمح** بـ«تسمية» ملف شغّال (لكن لا позволяет
+الكتابة فوقه):
+```bat
+move /Y "%EXPERTAPP_OLD%" "%EXPERTAPP_OLDBak%"   ← يفكّ القفل
+copy /Y "%EXPERTAPP_NEW%" "%EXPERTAPP_OLD%"       ← تنجح دائماً
+```
+⟵ النسخة القديمة تبقى `.old` (احتياط: لو فشل النسخ ⟵ نرجّعها) وتُحذف بعد ما
+يخرج البرنامج القديم (محاولات في الـbatch + تنظيف عند الإقلاع).
+
+#### (٣) 🔔 المستخدم صار يعرف ليش ما تغيّرت
+
+- الـbatch يكتب النتيجة بملف `%LOCALAPPDATA%\ExpertApp\update_result.txt`
+  (`ok` / `failed`) — والبرنامج يقرؤها عند الإقلاع (`main._report_update_result`)
+  ويعرض **رسالة وحدة** لو فشل (وقبلها: رجع البرنامج القديم **بصمت** ⟵ ما عرف
+  الخبير ليش).
+- `updater.cleanup_stale_update_files()` ⟵ يحذف `ExpertApp.exe.old` / `.bak`
+  الباقيين جنب البرنامج («نسخة ثانية») عند كل إقلاع.
+
+### 🧪 اختبار وظيفي حقيقي (مش بس وحدات)
+
+تشغيل حي للسكربت على جهاز فيه: **مسار عربي** + **EXE شغّال مقفول**:
+```
+نتيجة السكربت       : ok
+النسخة الجديدة بالمكان: True   (حجم مختلف ⟵ هي الجديدة)
+الملف القديم .old    : ينحذف تلقائياً بعد ما يخرج البرنامج القديم
+```
+⟵ **ثبت أن الإصلاح يشتغل بالظروف الحقيقية** (مو نظري).
+
+### 📁 الملفات المعدّلة
+`updater.py` (apply_update + read_update_result + cleanup_stale_update_files) ·
+`main.py` (_report_update_result + تنظيف عند الإقلاع) ·
+`qt_sessions_page.py` (_add_to_calendar · AddSessionDialog._sync_to_calendar) ·
+`test_updater.py` · `test_qt_calendar_flow.py`.

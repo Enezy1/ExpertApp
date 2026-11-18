@@ -585,6 +585,10 @@ def try_download_update(folder_path):
 
 # ---------- التطبيق ----------
 
+#: لاحقة الملف القديم بعد التسمية (مؤقتة — تنحذف بعد نجاح التحديث)
+OLD_SUFFIX = '.old'
+
+
 def exe_path():
     """مسار البرنامج المشغّل (EXE) — نص فاضي لو مشغّل من الكود المصدري."""
     if not getattr(sys, 'frozen', False):
@@ -595,13 +599,61 @@ def exe_path():
         return ''
 
 
+def update_result_file():
+    """
+    ملف نتيجة آخر محاولة تحديث — يكتبه سكربت الـbatch بعد ما يخلّص،
+    ويقرؤه البرنامج عند إقلاعه (مرة وحدة) ليخبر الخبير: نجح التحديث
+    ولا فشل (وإلا رجع البرنامج القديم بصمت وما عرف ليش).
+    """
+    base = os.environ.get('LOCALAPPDATA', '') or tempfile.gettempdir()
+    return os.path.join(base, 'ExpertApp', 'update_result.txt')
+
+
+def read_update_result():
+    """
+    نتيجة آخر تحديث: 'ok' / 'failed' / '' (لو ما فيه).
+    الملف ينحذف بعد القراءة ⟵ الرسالة تظهر مرة وحدة بس.
+    """
+    path = update_result_file()
+    try:
+        if not os.path.exists(path):
+            return ''
+        with open(path, encoding='utf-8', errors='replace') as f:
+            val = (f.read() or '').strip().lower()
+        os.remove(path)
+        return val
+    except Exception:
+        return ''
+
+
+def cleanup_stale_update_files():
+    """
+    يحذف بقايا النسخ السابقة جنب البرنامج (ExpertApp.exe.old / .bak) —
+    كانت «نسخة ثانية» يلقاها الخبير بمجلد البرنامج. بينادى عند الإقلاع.
+    """
+    current = exe_path()
+    if not current:
+        return
+    folder = os.path.dirname(current)
+    base = os.path.basename(current)
+    for name in (base + OLD_SUFFIX, base + '.bak'):
+        try:
+            p = os.path.join(folder, name)
+            if os.path.exists(p):
+                os.remove(p)
+        except Exception:
+            pass
+
+
 def _backup_current_exe(current_exe):
     """
     نسخة احتياطية من EXE الحالي — **بمجلد مؤقت** (مو بمجلد البرنامج!).
 
-    ⚠️ سبب التغيير: النسخة الاحتياطية كانت تنحفظ جنب البرنامج
+    ⚠️ ما عاد مستعمل بالتحديث الجديد: التسمية (move) نفسها هي الاحتياط —
+    البرنامج القديم يبقى موجوداً باسم .old حتى لو فشل النسخ (نرجّعه).
+    ⚠️ سبب التغيير الأصلي: النسخة الاحتياطية كانت تنحفظ جنب البرنامج
     (ExpertApp.exe.bak) وتبقى للأبد ⟵ كانت هي «النسخة الثانية» اللي
-    يشوفها الخبير بمجلد البرنامج. الآن تنحفظ مؤقتاً وتُحذف بعد نجاح النسخ.
+    يشوفها الخبير بمجلد البرنامج.
     """
     try:
         bak_dir = tempfile.mkdtemp(prefix='ExpertAppUpdate_Bak_')
@@ -616,19 +668,36 @@ def apply_update(new_exe_path, kind='program'):
     """
     يطبّق التحديث **بمكانه** — ما ينسخ نسخة ثانية أبداً:
 
-      - 'program':   يستبدل EXE المشغّل بالجديد (نسخة احتياطية بالمجلد
-                     المؤقت تُحذف بعد النجاح، والقديمة الاحتياطية من
-                     نسخ سابقة تُنظّف)، ثم يعيد تشغيل **نفس المسار**
-                     ⟵ اختصارات المستخدم وقائمة ابدأ تبقى على النسخة الجديدة.
+      - 'program':   يستبدل EXE المشغّل بالجديد (القديم يبقى مؤقتاً باسم
+                     .old ويُحذف بعد نجاح الاستبدال)، ثم يعيد تشغيل
+                     **نفس المسار** ⟵ اختصارات المستخدم وقائمة ابدأ تبقى
+                     على النسخة الجديدة.
       - 'installer': يشغّل المثبّت **بنفس مجلد البرنامج** (/DIR=...) ⟵
                      Inno Setup ينصّب فوق النسخة القديمة (يحذفها ويزرع
                      الجديدة بنفس المكان) بدل ما ينصّب نسخة ثانية بمكان
                      ثاني، وبعدها يعيد تشغيل **نفس المسار**.
 
-    ⚠️ سبب التغيير (المبلَّغ 17/11/2026): الكود القديم كان يشغّل المثبّت
-    بدون تحديد المجلد ⟵ كان ينصّب نسخة ** ثانية** بمكان ثاني، ويبقى
-    البرنامج القديم شغّالاً (فالنسخة ما تتغيّر). الآن الاستبدال **دائماً**
-    بمكان النسخة الحالية.
+    ⚠️ سبب هذا الإصلاح (المبلَّغ 18/11/2026): التحديث ما كان يشتغل أبداً
+    على أي جهاز —سببين حقيقيين (كلاهما مُقاس):
+
+      1) **المسار العربي كان يضيع**: سكربت الـbatch كان يُكتب بترميز
+         mbcs (cp1252 على الأجهزة الإنجليزية) ⟵ كل حرف عربي صار «؟» ⟵
+         المسار الفعلي «C:\\...\\نظام جلسات الخبراء\\ExpertApp.exe» صار
+         «C:\\...\\???? ????? ???????\\ExpertApp.exe» ⟵ النسخة ما تقدر
+         تنسخ لمكانها (المسار ما موجود). الحل: **السكربت ASCII صِرف**
+         والمسارات تجي **بمتغيرات بيئة** (Unicode) ⟵ cmd يسلّمها للـAPI
+         سليمة. (مقاس: الترجمة نجحت مع مسار عربي عبر متغيرات بيئة.)
+
+      2) **«البرنامج يعمل» ⟵ قفل الملف**: ويندوز يرفض الكتابة فوق EXE
+         شغّال («The process cannot access the file ... because it is being
+         used by another process»). نسخة onefile (PyInstaller) فيها عملية
+         أب (bootstrap) تحتجز الملف حتى بعد خروج البرنامج ⟵ فالمحاولات
+         (15 × ~1.5 ث ≈ 20 ث) كلها تفشل. لكن **التسمية مسموحة** لملف
+         شغّال ⟵ نسمّيها .old (يفكّ القفل) وبعدها ننسخ الجديدة بالمكان
+         والشغّال يكمّل على النسخة المسمّاة.
+
+    ⚠️ الآن المستخدم **يعرف** إن التحديث فشل: الـbatch يكتب النتيجة
+    بملفResult، والبرنامج يخبره عند الإقلاع (مرة وحدة).
 
     يعمل فقط من نسخة EXE المبنية (sys.frozen) — من الكود المصدري لا يفعل شي.
     """
@@ -639,63 +708,104 @@ def apply_update(new_exe_path, kind='program'):
         return False
     bat_path = os.path.join(tempfile.gettempdir(), 'expertapp_update.bat')
     tmp_dir = os.path.dirname(new_exe_path)
+    app_dir = os.path.dirname(current_exe)
+    old_exe = current_exe + OLD_SUFFIX
+    result_file = update_result_file()
+    try:
+        os.makedirs(os.path.dirname(result_file), exist_ok=True)
+    except Exception:
+        pass
 
+    # ⚠️ السكربت ASCII صِرف — **أي** مسار يمر بمتغير بيئة (Unicode).
+    #    (كتابة مسار عربي داخل السكربت = نفس البوكس القديم.)
+    head = (
+        '@echo off\r\n'
+        'ping -n 3 127.0.0.1 >nul\r\n'
+    )
     if kind == 'installer':
-        # مثبّت: تثبيت صامت **بنفس مجلد البرنامج** (نفس AppId) ⟵ يحذف
-        # النسخة القديمة ويزرع الجديدة بنفس المكان، ثم إعادة التشغيل.
-        # ⚠️ `call` مو `start /wait`: الـbatch يشتغل مفصول (بلا نافذة) —
-        #    `start /wait` يعلّق لو ما قدر يفتح نافذة جديدة.
-        app_dir = os.path.dirname(current_exe)
-        script = (
-            '@echo off\r\n'
-            'ping -n 3 127.0.0.1 >nul\r\n'
-            f'call "{new_exe_path}" /VERYSILENT /SUPPRESSMSGBOXES '
-            f'/NORESTART /CLOSEAPPLICATIONS /SP- /DIR="{app_dir}"\r\n'
-            f'rmdir /S /Q "{tmp_dir}" >nul 2>&1\r\n'
-            f'start "" "{current_exe}"\r\n'
-            '(goto) 2>nul & del "%~f0"\r\n'
+        body = (
+            # سمِّ البرنامج الجاري تشغيله (يفكّ قفل الملف) ثم المثبّت ينصّب
+            # فوق النسخة الجديدة بنفس المجلد.
+            'move /Y "%EXPERTAPP_OLD%" "%EXPERTAPP_OLDBak%" >nul 2>&1\r\n'
+            'call "%EXPERTAPP_INSTALLER%" /VERYSILENT /SUPPRESSMSGBOXES '
+            '/NORESTART /CLOSEAPPLICATIONS /SP- /DIR="%EXPERTAPP_DIR%"\r\n'
+            'if exist "%EXPERTAPP_OLD%" goto :installed\r\n'
+            'move /Y "%EXPERTAPP_OLDBak%" "%EXPERTAPP_OLD%" >nul 2>&1\r\n'
+            'goto :failed\r\n'
         )
     else:
-        backup = _backup_current_exe(current_exe)
-        bak_dir = os.path.dirname(backup) if backup else ''
-        # copy بمحاولات متكررة: EXE الأصلي يظل مقفولًا لحظات بعد إغلاق البرنامج.
-        # ⚠️ التدفّق بـgoto (مو set/if) — لأن `set ok=1 & goto` يخزّن "1 " بمسافة
-        #    فتصير المقارنة `"1 " == "1"` فاشلة والتنظيف ما ينفّذ.
-        script = (
-            '@echo off\r\n'
-            'ping -n 3 127.0.0.1 >nul\r\n'
+        body = (
+            # (1) سمِّ الملف الجاري تشغيله — ويندوز يسمح بذلك
+            'move /Y "%EXPERTAPP_OLD%" "%EXPERTAPP_OLDBak%" >nul 2>&1\r\n'
+            'if exist "%EXPERTAPP_OLDBak%" goto :renamed\r\n'
+            'goto :direct\r\n'
+            ':renamed\r\n'
+            'set tries=0\r\n'
+            ':copy_retry\r\n'
+            'copy /Y "%EXPERTAPP_NEW%" "%EXPERTAPP_OLD%" >nul 2>&1\r\n'
+            'if not errorlevel 1 goto :installed\r\n'
+            'set /a tries+=1\r\n'
+            'if %tries% LSS 15 (\r\n'
+            '  ping -n 2 127.0.0.1 >nul\r\n'
+            '  goto copy_retry\r\n'
+            ')\r\n'
+            # فشل نهائي ⟵ رجّع النسخة القديمة (هي .old) لمكانها
+            'move /Y "%EXPERTAPP_OLDBak%" "%EXPERTAPP_OLD%" >nul 2>&1\r\n'
+            'goto :failed\r\n'
+            # مسار بديل: نسخ مباشر (لو التسمية ما نجحت — نادر)
+            ':direct\r\n'
             'set tries=0\r\n'
             ':retry\r\n'
-            f'copy /Y "{new_exe_path}" "{current_exe}" >nul 2>&1\r\n'
-            'if not errorlevel 1 goto :cleanup_ok\r\n'
+            'copy /Y "%EXPERTAPP_NEW%" "%EXPERTAPP_OLD%" >nul 2>&1\r\n'
+            'if not errorlevel 1 goto :installed\r\n'
             'set /a tries+=1\r\n'
             'if %tries% LSS 15 (\r\n'
             '  ping -n 2 127.0.0.1 >nul\r\n'
             '  goto retry\r\n'
             ')\r\n'
+            'goto :failed\r\n'
         )
-        if backup:
-            # فشل نهائي بالنسخ → رجّع النسخة القديمة
-            script += (
-                f'copy /Y "{backup}" "{current_exe}" >nul 2>&1\r\n'
-            )
-        script += (
-            'goto :cleanup\r\n'
-            ':cleanup_ok\r\n'
-            # تنظيف **قبل** إعادة التشغيل: النسخة الاحتياطية القديمة (من نسخ
-            # سابقة) كانت «نسخة ثانية» بمجلد البرنامج — نحذفها بعد النجاح،
-            # ومجلد النسخة الاحتياطية المؤقت كمان.
-            f'del /F /Q "{current_exe}.bak" >nul 2>&1\r\n'
-            f'rmdir /S /Q "{bak_dir}" >nul 2>&1\r\n'
-            ':cleanup\r\n'
-            f'rmdir /S /Q "{tmp_dir}" >nul 2>&1\r\n'
-            f'start "" "{current_exe}"\r\n'
-            '(goto) 2>nul & del "%~f0"\r\n'
-        )
-    with open(bat_path, 'w', encoding='mbcs', errors='replace') as f:
+    tail = (
+        ':installed\r\n'
+        '> "%EXPERTAPP_RES%" echo ok\r\n'
+        'start "" "%EXPERTAPP_OLD%"\r\n'
+        # النسخة القديمة ما تنحذف إلا بعد ما يخرج البرنامج القديم (العملية
+        # تحتجزها) ⟵ محاولات + تنظيف عند الإقلاع القادم احتياطاً.
+        'set tries=0\r\n'
+        ':del_old\r\n'
+        'del /F /Q "%EXPERTAPP_OLDBak%" >nul 2>&1\r\n'
+        'if not exist "%EXPERTAPP_OLDBak%" goto :cleanup\r\n'
+        'set /a tries+=1\r\n'
+        'if %tries% LSS 20 (\r\n'
+        '  ping -n 2 127.0.0.1 >nul\r\n'
+        '  goto del_old\r\n'
+        ')\r\n'
+        'goto :cleanup\r\n'
+        ':failed\r\n'
+        '> "%EXPERTAPP_RES%" echo failed\r\n'
+        'start "" "%EXPERTAPP_OLD%"\r\n'
+        ':cleanup\r\n'
+        'del /F /Q "%EXPERTAPP_OLD%.bak" >nul 2>&1\r\n'
+        'rmdir /S /Q "%EXPERTAPP_TMP%" >nul 2>&1\r\n'
+        '(goto) 2>nul & del "%~f0"\r\n'
+    )
+    script = head + body + tail
+
+    env = dict(os.environ)
+    env.update({
+        'EXPERTAPP_OLD': current_exe,
+        'EXPERTAPP_OLDBak': old_exe,
+        'EXPERTAPP_NEW': new_exe_path,
+        'EXPERTAPP_INSTALLER': new_exe_path,
+        'EXPERTAPP_DIR': app_dir,
+        'EXPERTAPP_RES': result_file,
+        'EXPERTAPP_TMP': tmp_dir,
+    })
+    with open(bat_path, 'w', encoding='ascii', errors='replace') as f:
         f.write(script)
     subprocess.Popen(
         ['cmd', '/c', bat_path],
+        env=env,
         creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS,
         close_fds=True,
     )

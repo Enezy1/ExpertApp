@@ -790,6 +790,38 @@ def _on_update_downloaded(path, kind):
         sb.set_update_failed(_update_state['ver'])
 
 
+def _report_update_result():
+    """
+    نتيجة آخر محاولة تحديث (يكتبها سكربت التحويل بعد ما يخلّص).
+
+    ⚠️ ليش مهم: قبل هالتعديل كان فشل التحديث **صامت** — البرنامج يرجع
+    نسخته القديمة والخبير ما يعرف ليش النسخة ما تغيّرت. الآن: رسالة
+    وحدة واضحة (مرة وحدة عند كل إقلاع، مو كل ضغطة).
+
+    وبنفس الوقت ننظّف بقايا النسخ القديمة (ExpertApp.exe.old / .bak) —
+    كانت «نسخة ثانية» يلقاها الخبير بمجلد البرنامج.
+    """
+    try:
+        import updater
+        updater.cleanup_stale_update_files()
+        result = updater.read_update_result()
+    except Exception:
+        return
+    if result != 'failed':
+        return
+    try:
+        QMessageBox.warning(
+            getattr(LoginScreenQt, '_main_window_ref', None),
+            'التحديث',
+            'تعذّر تحديث البرنامج — النسخة الحالية ما تغيّرت.\n\n'
+            'السبب المعتاد: البرنامج كان شغّالاً وقت التحديث، أو ما '
+            'قدرنا نكتب بمجلد البرنامج.\n'
+            'جرّب مرة ثانية بعد إغلاق البرنامج، أو نزّل النسخة الجديدة '
+            'يدوياً من مجلد التحديثات.')
+    except Exception:
+        pass
+
+
 class LoginScreenQt(QWidget):
     def __init__(self):
         super().__init__()
@@ -982,6 +1014,11 @@ class LoginScreenQt(QWidget):
         self._main_window = ExpertAppQt(cookies, user)
         LoginScreenQt._main_window_ref = self._main_window
         self._main_window.show()
+        # نتيجة آخر تحديث (إن فشل ⟵ رسالة وحدة) + تنظيف بقايا النسخ القديمة
+        try:
+            QTimer.singleShot(1500, _report_update_result)
+        except Exception:
+            pass
         import window_guard
         window_guard.install(QApplication.instance(), self._main_window)   # الرئيسية لا تختفي عند إغلاق حوار
 
