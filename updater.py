@@ -275,6 +275,86 @@ def _exe_file_version(path):
         return None
 
 
+def _exe_string_version(path, key='ProductVersion'):
+    """
+    يقرأ قيمة **نصية** من خصائص الملف (مثل `ProductVersion`) — بلا pywin32.
+
+    ⚠️ ليش مهم: ملف المثبّت (Inno Setup) عنده `FileVersion` = **0.0.0**
+    ⟵ لكن `ProductVersion` = رقم النسخة الحقيقي (**1.2.15**) ⟵ منه نعرف
+    إن المصدر الداخلي فيه تحديث — حتى لو اسم الملف ما يحمل رقم.
+
+    يمرّ على ترجمات الملف (LangID + Codepage) عشان يجد الجدول الصح.
+    """
+    try:
+        import ctypes
+        from ctypes import wintypes
+        ver = ctypes.windll.version
+        ver.GetFileVersionInfoSizeW.argtypes = [wintypes.LPCWSTR, ctypes.POINTER(wintypes.DWORD)]
+        ver.GetFileVersionInfoSizeW.restype = wintypes.DWORD
+        ver.GetFileVersionInfoW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p]
+        ver.GetFileVersionInfoW.restype = wintypes.BOOL
+        ver.VerQueryValueW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR,
+                                       ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(wintypes.UINT)]
+        ver.VerQueryValueW.restype = wintypes.BOOL
+        size = ver.GetFileVersionInfoSizeW(path, None)
+        if not size:
+            return ''
+        buf = ctypes.create_string_buffer(size)
+        if not ver.GetFileVersionInfoW(path, 0, size, buf):
+            return ''
+
+        # ترجمات الملف (LangID + Codepage) من VarFileInfo\Translation
+        langs = []
+        ptr = ctypes.c_void_p()
+        length = wintypes.UINT()
+        if ver.VerQueryValueW(buf, '\\VarFileInfo\\Translation',
+                              ctypes.byref(ptr), ctypes.byref(length)):
+            count = length.value // 4
+            arr = ctypes.cast(ptr, ctypes.POINTER(ctypes.c_ushort))
+            langs = [(arr[i * 2], arr[i * 2 + 1]) for i in range(count)]
+        if not langs:
+            langs = [(0x0409, 0x04B0), (0x0804, 0x04B0)]
+
+        for lang, cp in langs:
+            query = '\\StringFileInfo\\%04X%04X\\%s' % (lang, cp, key)
+            p = ctypes.c_void_p()
+            ln = wintypes.UINT()
+            if ver.VerQueryValueW(buf, query, ctypes.byref(p), ctypes.byref(ln)):
+                return ctypes.wstring_at(p.value, ln.value).strip()
+        return ''
+    except Exception:
+        return ''
+
+
+def _exe_version_or_name(path):
+    """
+    رقم نسخة ملف EXE — بالترتيب:
+      ① `FileVersion` من الخصائص (لو مو 0.0.0)
+      ② `ProductVersion` من الخصائص (هذا اللي بمثبّت Inno Setup ✅)
+      ③ من **اسم الملف** (`ExpertApp-Setup-1.2.15.exe` ⟵ 1.2.15)
+
+    يرجع '' لو ما لقى أي رقم.
+    """
+    if not path:
+        return ''
+    try:
+        fixed = _exe_file_version(path)
+        if fixed and fixed != '0.0.0':
+            return fixed
+    except Exception:
+        pass
+    try:
+        prod = _exe_string_version(path, 'ProductVersion')
+        if prod:
+            m = re.search(r'(\d+)\.(\d+)\.(\d+)', prod)
+            if m:
+                return m.group(0)
+    except Exception:
+        pass
+    m = re.search(r'(\d+)\.(\d+)\.(\d+)', os.path.basename(path))
+    return m.group(0) if m else ''
+
+
 def _pick_program_exe(folder_path):
     """
     يختار **نسخة البرنامج المحمولة** من مجلد الشبكة.
@@ -306,6 +386,52 @@ def _latest_exe(folder_path):
     return _pick_program_exe(folder_path)
 
 
+def _pick_installer_exe(folder_path):
+    """
+    يختار **المثبّت** من مجلد الشبكة الداخلي — `*Setup*.exe` أو `*تثبيت*.exe`.
+
+    ⚠️ ليش مثبّت مو نسخة محمولة (طلب العنزي 18/11/2026):
+      - المصدر الداخلي على **شبكة الدوام** ⟵ الأجهزة تسحب منه مباشرة
+        (أسرع، وما يستهلكون إنترنت الدوام ولا GitHub).
+      - المثبّت (Inno Setup) **ينصّب فوق النسخة الحالية** بنفس المجلد
+        (مع المسجّل ومفتاح إلغاء التثبيت) ⟵ أنظف من نسخ ملف EXE.
+      - «الأحدث زمنياً» = الأحدث إصداراً (اسم الملف غالباً ما يحمل رقم،
+        والرقم يُقرأ من `ProductVersion` — انظر `_exe_version_or_name`).
+    """
+    try:
+        exes = glob.glob(os.path.join(folder_path, '*.exe'))
+    except Exception:
+        return None
+    if not exes:
+        return None
+    installers = [e for e in exes if _is_installer_name(os.path.basename(e))]
+    if not installers:
+        return None
+    try:
+        return max(installers, key=os.path.getmtime)
+    except Exception:
+        return installers[0]
+
+
+def _pick_source_exe(folder_path):
+    """
+    ملف التحديث من **المصدر الداخلي** (مجلد الشبكة):
+      ① **المثبّت** (`*Setup*.exe` / `*تثبيت*.exe`) — المطلوب.
+      ② وإلا النسخة المحمولة (`ExpertApp.exe`) — احتياط (لو الأدمن ما رفع مثبّت).
+
+    ⚠️ **ما نتجاهل ملفات التثبيت** بالمصدر الداخلي anymore (كانوا
+    مستبعدين بالكامل ⟵ فالمصدر الداخلي ما كان يشتغل أبداً).
+    """
+    return _pick_installer_exe(folder_path) or _pick_program_exe(folder_path)
+
+
+def _source_kind(path):
+    """نوع الملف: 'installer' أو 'program' — من اسمه."""
+    if path and _is_installer_name(os.path.basename(path)):
+        return 'installer'
+    return 'program'
+
+
 def detect_version(folder_path, timeout=4):
     """
     رقم نسخة البرنامج الموجود بمجلد التحديثات — **تلقائي** (من خصائص ملف
@@ -320,10 +446,10 @@ def detect_version(folder_path, timeout=4):
     try:
         if not folder_path or not _path_reachable(folder_path, timeout):
             return ''
-        exe = _pick_program_exe(folder_path)
+        exe = _pick_source_exe(folder_path)
         if not exe:
             return ''
-        return _exe_file_version(exe) or ''
+        return _exe_version_or_name(exe)
     except Exception as e:
         print(f"detect_version ERROR: {e}")
         return ''
@@ -403,10 +529,12 @@ def _source_version(src, timeout=8):
         if src['kind'] == 'internal':
             if not _path_reachable(src['loc']):
                 return ''
-            exe = _pick_program_exe(src['loc'])
+            exe = _pick_source_exe(src['loc'])
             if not exe:
                 return ''
-            return _exe_file_version(exe) or ''
+            # ⚠️ المثبّت: FileVersion = 0.0.0 ⟵ `_exe_version_or_name` يقرأ
+            #    ProductVersion (1.2.15) أو رقم نسخة من اسم الملف.
+            return _exe_version_or_name(exe)
         # أونلاين
         loc = src['loc']
         if GITHUB_REPO in loc and '/releases' in loc and 'download' not in loc:
@@ -454,11 +582,17 @@ def check_for_update(timeout=8):
 # ---------- التنزيل ----------
 
 def _copy_from_folder(folder_path):
-    """ينسخ نسخة البرنامج من مجلد الشبكة لمجلد مؤقت — ويرجّع المسار أو ''."""
+    """
+    ينسخ **ملف التحديث** من مجلد الشبكة لمجلد مؤقت — ويرجّع المسار أو ''.
+
+    ⚠️ الملف = **المثبّت** أول (طلب العنزي 18/11/2026 — المصدر الداخلي على
+    شبكة الدوام ⟵ الأجهزة تسحب منه مباشرة: أسرع + ما يستهلك إنترنت الدوام
+    ولا GitHub)، وإلا النسخة المحمولة احتياطاً.
+    """
     try:
         if not folder_path or not _path_reachable(folder_path):
             return ''
-        exe = _pick_program_exe(folder_path)
+        exe = _pick_source_exe(folder_path)
         if not exe:
             return ''
         tmp_dir = tempfile.mkdtemp(prefix='ExpertAppUpdate_')
@@ -549,8 +683,12 @@ def download_update(sources, target_version='', progress=None):
 
     يرجّع (المسار المحلي, نوع الملف, المصدر):
       - نوع الملف 'program'   = نسخة البرنامج (تُستبدل مكان EXE الحالي)
-      - نوع الملف 'installer' = مثبّت (يُشغَّل بدل الاستبدال)
+      - نوع الملف 'installer' = مثبّت (يُشغَّل بدل الاستبدال — ينصّب فوق
+                                 النسخة الحالية بنفس المجلد)
     أو ('', '', None) عند الفشل.
+
+    ⚠️ المصدر الداخلي: الملف = **المثبّت** (لو موجود بالمجلد) ⟵ نسخه لـ
+    %TEMP% وتشغيله بصمت ⟵ **نفس سلوك** المثبّت من GitHub بالضبط.
     """
     for src in (sources or []):
         try:
@@ -564,7 +702,7 @@ def download_update(sources, target_version='', progress=None):
             if src.get('kind') == 'internal':
                 local = _copy_from_folder(src.get('loc'))
                 if local:
-                    return local, 'program', src
+                    return local, _source_kind(local), src
                 continue
             local, kind = _download_online(src, progress)
             if local:
@@ -576,9 +714,8 @@ def download_update(sources, target_version='', progress=None):
 
 def try_download_update(folder_path):
     """
-    (للتوافق مع الكود القديم) ينسخ أحدث نسخة من مجلد واحد — ويرجع المسار
-    المحلي أو None (نفس السلوك السابق).
-    يفضّل نسخة البرنامج على المثبّت.
+    (للتوافق مع الكود القديم) ينسخ أحدث ملف تحديث من مجلد واحد — ويرجع
+    المسار المحلي أو None (نفس السلوك السابق).
     """
     return _copy_from_folder(folder_path) or None
 

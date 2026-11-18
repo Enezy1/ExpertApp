@@ -291,6 +291,21 @@ class ApplyUpdateTests(unittest.TestCase):
         script, _env = self._apply('installer')
         self.assertIn('start "" "%EXPERTAPP_OLD%"', script)
 
+    def test_installer_applied_silently_in_place(self):
+        """
+        ⚠️ **تثبيت المثبّت من المصدر الداخلي** = نفس سلوك GitHub بالضبط:
+        نسخ المثبّت لـ%TEMP% ← تشغيله **بصمت** بنفس المجلد ← إغلاق قسري
+        لكل النسخ ← تنظيف النسخة القديمة.
+        """
+        script, env = self._apply('installer')
+        self.assertIn('/VERYSILENT', script)
+        self.assertIn('/SUPPRESSMSGBOXES', script)
+        self.assertIn('/NORESTART', script)
+        self.assertIn('/DIR="%EXPERTAPP_DIR%"', script)
+        self.assertIn('taskkill /F /IM "%EXPERTAPP_IMG%"', script)
+        self.assertIn('del /F /Q "%EXPERTAPP_OLDBak%"', script)
+        self.assertEqual(env.get('EXPERTAPP_INSTALLER'), self.new)
+
     def test_not_frozen_returns_false(self):
         with mock.patch.object(sys, 'frozen', False, create=True):
             self.assertFalse(up.apply_update(self.new, 'program'))
@@ -439,6 +454,99 @@ class RunningExeLockTests(unittest.TestCase):
         self.assertEqual(env.get('EXPERTAPP_IMG'), 'ExpertApp.exe')
         self.assertLess(script.index('taskkill'),
                         script.index('move /Y "%EXPERTAPP_OLD%"'))
+
+
+class InternalSourceTests(unittest.TestCase):
+    """
+    ⚠️ **المصدر الداخلي (مجلد الشبكة) — يستخدم المثبّت** (طلب العنزي 18/11/2026):
+      - الأجهزة تسحب من مجلد الأدمن على **شبكة الدوام** مباشرة (أسرع،
+        وما تستهلك إنترنت الدوام ولا GitHub).
+      - الملف = **المثبّت** (`*Setup*.exe` / `*تثبيت*.exe`) — **ما نتجاهله** anymore.
+      - رقم النسخة من `FileVersion`/`ProductVersion` أو من **اسم الملف**.
+      - التثبيت = نسخ المثبّت لـ%TEMP% + تشغيله بصمت — **نفس** مسار GitHub.
+    """
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp(prefix='upd_int_')
+
+    def tearDown(self):
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def test_installer_preferred_over_portable_program(self):
+        """المثبّت له الأولوية على النسخة المحمولة."""
+        _mk_exe(self.dir, 'ExpertApp.exe')
+        setup = _mk_exe(self.dir, 'ExpertApp-Setup-1.2.15.exe')
+        picked = up._pick_source_exe(self.dir)
+        self.assertEqual(picked, setup)
+
+    def test_arabic_installer_name_is_picked(self):
+        """`تثبيت_نظام_جلسات_الخبراء.exe` — مثبّت معروف (بدون رقم بالاسم)."""
+        _mk_exe(self.dir, 'ExpertApp.exe')
+        setup = _mk_exe(self.dir, 'تثبيت_نظام_جلسات_الخبراء.exe')
+        picked = up._pick_source_exe(self.dir)
+        self.assertEqual(picked, setup)
+        self.assertEqual(up._source_kind(picked), 'installer')
+
+    def test_newest_installer_wins(self):
+        """الأحدث زمنياً = الأحدث إصداراً."""
+        old = _mk_exe(self.dir, 'ExpertApp-Setup-1.2.14.exe')
+        os.utime(old, (1000000, 1000000))
+        new = _mk_exe(self.dir, 'ExpertApp-Setup-1.2.15.exe')
+        os.utime(new, (2000000, 2000000))
+        self.assertEqual(up._pick_source_exe(self.dir), new)
+
+    def test_falls_back_to_portable_program(self):
+        """لو ما فيه مثبّت ⟵ النسخة المحمولة (احتياط)."""
+        prog = _mk_exe(self.dir, 'ExpertApp.exe')
+        self.assertEqual(up._pick_source_exe(self.dir), prog)
+        self.assertEqual(up._source_kind(prog), 'program')
+
+    def test_version_read_from_file_name(self):
+        """لو الملف ما عنده خصائص ⟵ الرقم من اسمه."""
+        f = _mk_exe(self.dir, 'ExpertApp-Setup-1.2.15.exe')
+        self.assertEqual(up._exe_version_or_name(f), '1.2.15')
+
+    def test_version_from_properties_wins_over_name(self):
+        """لو فيه خصائص ⟵ هي الأصح (الاسم ممكن يكون قديم)."""
+        f = _mk_exe(self.dir, 'ExpertApp-Setup-9.9.9.exe')
+        with mock.patch.object(up, '_exe_file_version', return_value='1.2.15'):
+            self.assertEqual(up._exe_version_or_name(f), '1.2.15')
+
+    def test_zero_version_is_not_taken(self):
+        """`0.0.0` (حالة المثبّت Inno) ⟵ ما ينحسب نسخة ⟵ ننزل للاسم/المنتج."""
+        f = _mk_exe(self.dir, 'ExpertApp-Setup-1.2.15.exe')
+        with mock.patch.object(up, '_exe_file_version', return_value='0.0.0'), \
+             mock.patch.object(up, '_exe_string_version', return_value=''):
+            self.assertEqual(up._exe_version_or_name(f), '1.2.15')
+
+    def test_source_version_uses_installer(self):
+        """`_source_version` للمصدر الداخلي يقرأ من المثبّت."""
+        _mk_exe(self.dir, 'ExpertApp-Setup-1.2.16.exe')
+        src = {'kind': 'internal', 'loc': self.dir, 'version': ''}
+        with mock.patch.object(up, '_path_reachable', return_value=True):
+            self.assertEqual(up._source_version(src), '1.2.16')
+
+    def test_detect_version_prefers_installer(self):
+        """رقم النسخة المنشور (من الإعدادات) يقرأ من المثبّت."""
+        _mk_exe(self.dir, 'ExpertApp-Setup-1.2.17.exe')
+        with mock.patch.object(up, '_path_reachable', return_value=True):
+            self.assertEqual(up.detect_version(self.dir), '1.2.17')
+
+    def test_internal_download_returns_installer_kind(self):
+        """التنزيل من المصدر الداخلي ⟵ النوع 'installer' (مش 'program')."""
+        with mock.patch.object(up, '_copy_from_folder',
+                               return_value=r'C:\tmp\ExpertApp-Setup-1.2.15.exe'):
+            path, kind, src = up.download_update(
+                [{'kind': 'internal', 'loc': r'\\srv\Updates', 'version': ''}])
+        self.assertEqual(kind, 'installer')
+
+    def test_internal_download_program_kind_when_no_installer(self):
+        """لو كان الملف المحمول ⟵ النوع 'program'."""
+        with mock.patch.object(up, '_copy_from_folder',
+                               return_value=r'C:\tmp\ExpertApp.exe'):
+            path, kind, src = up.download_update(
+                [{'kind': 'internal', 'loc': r'\\srv\Updates', 'version': ''}])
+        self.assertEqual(kind, 'program')
 
 
 class UpdateResultTests(unittest.TestCase):
