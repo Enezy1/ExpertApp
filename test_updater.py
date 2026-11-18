@@ -487,6 +487,24 @@ class InternalSourceTests(unittest.TestCase):
         self.assertEqual(picked, setup)
         self.assertEqual(up._source_kind(picked), 'installer')
 
+    def test_constant_name_workflow_version_from_properties(self):
+        """
+        ⚠️ **طريقة الأدمن (18/11/2026):** يبدّل **نفس الملف** (نفس الاسم)
+        كل ما يسوي نسخة ⟵ فالاسم **ما يحمل رقم** ⟵ لازم الرقم يُقرأ من
+        **خصائص الملف** (`ProductVersion` للمثبّت Inno = 1.2.15) ✅.
+        """
+        setup = _mk_exe(self.dir, 'تثبيت_نظام_جلسات_الخبراء.exe')
+        with mock.patch.object(up, '_exe_file_version', return_value='0.0.0'), \
+             mock.patch.object(up, '_exe_string_version', return_value='1.2.16'):
+            self.assertEqual(up._exe_version_or_name(setup), '1.2.16')
+
+    def test_replaced_file_is_picked_by_newest_mtime(self):
+        """الأدمن يبدّل الملف (نفس الاسم) ⟵ الأحدث زمنياً هو الجديد."""
+        setup = _mk_exe(self.dir, 'تثبيت_نظام_جلسات_الخبراء.exe')
+        os.utime(setup, (3000000, 3000000))
+        _mk_exe(self.dir, 'ExpertApp.exe')
+        self.assertEqual(up._pick_source_exe(self.dir), setup)
+
     def test_newest_installer_wins(self):
         """الأحدث زمنياً = الأحدث إصداراً."""
         old = _mk_exe(self.dir, 'ExpertApp-Setup-1.2.14.exe')
